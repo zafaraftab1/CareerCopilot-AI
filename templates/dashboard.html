@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Job Application Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-robot"></i>
+                    <h1>AI JobBot</h1>
+                </div>
+                <p class="subtitle">Automated Job Application</p>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-item active" data-section="dashboard">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#jobs" class="nav-item" data-section="jobs">
+                    <i class="fas fa-briefcase"></i>
+                    <span>Job Search</span>
+                </a>
+                <a href="#applications" class="nav-item" data-section="applications">
+                    <i class="fas fa-file-invoice"></i>
+                    <span>Applications</span>
+                </a>
+                <a href="#resume" class="nav-item" data-section="resume">
+                    <i class="fas fa-file-pdf"></i>
+                    <span>Resume</span>
+                </a>
+                <a href="#settings" class="nav-item" data-section="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="avatar">AF</div>
+                    <div>
+                        <p class="user-name">MD Aftab Alam</p>
+                        <p class="user-email">aftab.work86@gmail.com</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <button class="menu-toggle" id="menuToggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2 id="section-title">Dashboard</h2>
+                </div>
+                <div class="header-right">
+                    <div class="search-bar">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search jobs...">
+                    </div>
+                    <button class="notification-btn">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-badge">3</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Sections -->
+            <div class="content-sections">
+
+                <!-- Dashboard Section -->
+                <section id="dashboard-section" class="content-section active">
+                    <!-- Stats Cards -->
+                    <div class="stats-grid">
+                        <div class="stat-card primary">
+                            <div class="stat-icon">
+                                <i class="fas fa-paper-plane"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>Today's Applications</h3>
+                                <p class="stat-value" id="today-applied">0</p>
+                                <p class="stat-label">out of <span id="daily-limit">20</span></p>
+                            </div>
+                        </div>
+
+                        <div class="stat-card success">
+                            <div class="stat-icon">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>Jobs Matched</h3>
+                                <p class="stat-value" id="jobs-matched">0</p>
+                                <p class="stat-label">Above 70% match</p>
+                            </div>
+                        </div>
+
+                        <div class="stat-card info">
+                            <div class="stat-icon">
+                                <i class="fas fa-search"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>Jobs Scraped</h3>
+                                <p class="stat-value" id="jobs-scraped">0</p>
+                                <p class="stat-label">Today</p>
+                            </div>
+                        </div>
+
+                        <div class="stat-card warning">
+                            <div class="stat-icon">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>Avg. Match Score</h3>
+                                <p class="stat-value" id="avg-match-score">0%</p>
+                                <p class="stat-label">All applications</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row -->
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <h3>Applications by Portal</h3>
+                            <div id="portal-chart" style="height: 300px;"></div>
+                        </div>
+                        <div class="chart-card">
+                            <h3>Applications by Location</h3>
+                            <div id="location-chart" style="height: 300px;"></div>
+                        </div>
+                    </div>
+
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <h3>Match Score Distribution</h3>
+                            <div id="score-distribution-chart" style="height: 300px;"></div>
+                        </div>
+                        <div class="chart-card">
+                            <h3>Application Progress</h3>
+                            <div id="progress-chart" style="height: 300px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Applications -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Recent Applications</h3>
+                            <a href="#" class="view-all">View All →</a>
+                        </div>
+                        <div class="table-container">
+                            <table class="applications-table">
+                                <thead>
+                                    <tr>
+                                        <th>Job Title</th>
+                                        <th>Company</th>
+                                        <th>Location</th>
+                                        <th>Portal</th>
+                                        <th>Match Score</th>
+                                        <th>Date Applied</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recent-applications">
+                                    <tr>
+                                        <td colspan="7" style="text-align: center; padding: 40px;">
+                                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Job Search Section -->
+                <section id="jobs-section" class="content-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Search & Evaluate Jobs</h3>
+                        </div>
+
+                        <div class="search-filters">
+                            <div class="filter-group">
+                                <label>Role</label>
+                                <select id="role-filter">
+                                    <option value="">All Roles</option>
+                                    <option value="Python Developer">Python Developer</option>
+                                    <option value="Backend">Backend Developer</option>
+                                    <option value="AI Engineer">AI Engineer</option>
+                                    <option value="ML Engineer">ML Engineer</option>
+                                    <option value="Data Engineer">Data Engineer</option>
+                                </select>
+                            </div>
+
+                            <div class="filter-group">
+                                <label>Location</label>
+                                <select id="location-filter">
+                                    <option value="">All Locations</option>
+                                    <option value="Hyderabad">Hyderabad</option>
+                                    <option value="Noida">Noida</option>
+                                    <option value="Delhi NCR">Delhi NCR</option>
+                                    <option value="Gurgaon">Gurgaon</option>
+                                    <option value="Mumbai">Mumbai</option>
+                                    <option value="Kolkata">Kolkata</option>
+                                </select>
+                            </div>
+
+                            <div class="filter-group">
+                                <label>Min. Match Score</label>
+                                <input type="range" id="score-filter" min="0" max="100" value="70"
+                                       style="width: 100%;">
+                                <span id="score-value">70%</span>
+                            </div>
+
+                            <button class="btn btn-primary" id="search-btn">
+                                <i class="fas fa-search"></i> Search Jobs
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Job Listings -->
+                    <div id="jobs-container" class="jobs-container">
+                        <!-- Jobs will be loaded here -->
+                    </div>
+
+                    <div style="text-align: center; margin-top: 30px;">
+                        <button class="btn btn-success btn-large" id="apply-selected-btn" style="display: none;">
+                            <i class="fas fa-paper-plane"></i> Apply to Selected Jobs
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Applications Section -->
+                <section id="applications-section" class="content-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>All Applications</h3>
+                            <div class="filter-controls">
+                                <select id="status-filter">
+                                    <option value="">All Status</option>
+                                    <option value="applied">Applied</option>
+                                    <option value="skipped">Skipped</option>
+                                    <option value="interview_received">Interview Received</option>
+                                </select>
+                                <input type="date" id="date-filter" placeholder="Filter by date">
+                            </div>
+                        </div>
+
+                        <div class="table-container">
+                            <table class="applications-table">
+                                <thead>
+                                    <tr>
+                                        <th>Job Title</th>
+                                        <th>Company</th>
+                                        <th>Location</th>
+                                        <th>Portal</th>
+                                        <th>Match Score</th>
+                                        <th>Date Applied</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="applications-list">
+                                    <tr>
+                                        <td colspan="8" style="text-align: center; padding: 40px;">
+                                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        <div class="pagination" id="applications-pagination">
+                            <!-- Pagination will be added here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Resume Section -->
+                <section id="resume-section" class="content-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Resume & Profile</h3>
+                        </div>
+
+                        <!-- Resume Upload -->
+                        <div class="resume-upload">
+                            <div class="upload-area" id="upload-area">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <h4>Upload Resume</h4>
+                                <p>Drag and drop your resume or click to browse</p>
+                                <input type="file" id="resume-file" accept=".pdf,.doc,.docx" style="display: none;">
+                            </div>
+                            <button class="btn btn-primary" id="upload-btn">
+                                <i class="fas fa-upload"></i> Choose File
+                            </button>
+                        </div>
+
+                        <!-- Resume Summary -->
+                        <div style="margin-top: 40px;">
+                            <h4>Extracted Skills</h4>
+                            <div id="skills-container" class="skills-container">
+                                <!-- Skills will be loaded here -->
+                            </div>
+                        </div>
+
+                        <!-- Profile Info -->
+                        <div class="profile-info">
+                            <h4>Profile Information</h4>
+                            <div class="form-group">
+                                <label>Name</label>
+                                <input type="text" id="profile-name" value="MD Aftab Alam" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" id="profile-email" value="aftab.work86@gmail.com" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Experience (Years)</label>
+                                <input type="number" id="profile-experience" value="4">
+                            </div>
+                            <button class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Settings Section -->
+                <section id="settings-section" class="content-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Settings</h3>
+                        </div>
+
+                        <div class="settings-group">
+                            <h4>Application Settings</h4>
+                            <div class="setting-item">
+                                <label>Daily Application Limit</label>
+                                <input type="number" id="daily-limit-input" value="20">
+                            </div>
+                            <div class="setting-item">
+                                <label>Match Score Threshold (%)</label>
+                                <input type="number" id="threshold-input" value="70" min="0" max="100">
+                            </div>
+                        </div>
+
+                        <div class="settings-group">
+                            <h4>Email Notifications</h4>
+                            <div class="setting-item">
+                                <label>Recipient Email</label>
+                                <input type="email" id="notification-email" value="aftab.work86@gmail.com">
+                            </div>
+                            <div class="setting-item">
+                                <label>
+                                    <input type="checkbox" id="daily-summary" checked>
+                                    Send Daily Summary Email
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label>
+                                    <input type="checkbox" id="success-notification" checked>
+                                    Notify on Successful Application
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="settings-group">
+                            <h4>Preferred Locations</h4>
+                            <div class="location-checkboxes">
+                                <label><input type="checkbox" value="Hyderabad" checked> Hyderabad</label>
+                                <label><input type="checkbox" value="Noida" checked> Noida</label>
+                                <label><input type="checkbox" value="Delhi NCR" checked> Delhi NCR</label>
+                                <label><input type="checkbox" value="Gurgaon" checked> Gurgaon</label>
+                                <label><input type="checkbox" value="Mumbai" checked> Mumbai</label>
+                                <label><input type="checkbox" value="Kolkata" checked> Kolkata</label>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 30px;">
+                            <button class="btn btn-primary">Save Settings</button>
+                            <button class="btn btn-secondary">Reset to Default</button>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
+
