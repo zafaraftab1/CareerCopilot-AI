@@ -239,6 +239,71 @@ body {
     font-weight: 700;
 }
 
+.ai-copilot-card {
+    margin-bottom: 30px;
+    border-left: 4px solid #1f8a70;
+}
+
+.ai-insights-list {
+    display: grid;
+    gap: 10px;
+}
+
+.ai-insight-item {
+    background: #f2fffa;
+    border: 1px solid #caefe1;
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: #1d4d42;
+}
+
+.ai-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.ai-status-text {
+    margin-top: 12px;
+    color: #2c3e50;
+    font-size: 14px;
+}
+
+.ai-answers-container {
+    margin-top: 16px;
+    display: grid;
+    gap: 10px;
+}
+
+.ai-answer-card {
+    background: #f7fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.ai-answer-card .question {
+    font-weight: 700;
+    color: #1a365d;
+    margin-bottom: 6px;
+}
+
+.ai-answer-card .answer {
+    color: #2d3748;
+    font-size: 14px;
+}
+
+.scrape-status-card {
+    margin-bottom: 20px;
+    border-left: 4px solid #2563eb;
+}
+
+#scrape-status-content {
+    color: #1f2937;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
 /* =================================================================
    Main Content Area
    ================================================================= */
@@ -848,6 +913,22 @@ body {
     border-radius: 6px;
 }
 
+.setting-item select,
+.setting-item textarea {
+    width: 100%;
+    max-width: 600px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 14px;
+}
+
+.setting-item textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
 .location-checkboxes {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -1102,4 +1183,3 @@ body {
         display: none;
     }
 }
-

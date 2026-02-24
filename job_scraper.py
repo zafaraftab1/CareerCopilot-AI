@@ -5,6 +5,14 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 import json
+import time
+from urllib.parse import quote_plus
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 class JobScraper:
     """
@@ -185,6 +193,110 @@ class JobSearchAPI:
         return unique_jobs
 
 
+class NaukriLiveScraper:
+    """
+    Live scraper for Naukri using Selenium.
+    """
+
+    def __init__(self, headless=True):
+        self.headless = headless
+
+    def _build_driver(self):
+        options = Options()
+        if self.headless:
+            options.add_argument("--headless=new")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1600,1000")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        return webdriver.Chrome(options=options)
+
+    def _build_search_url(self, role, location):
+        role_q = quote_plus(role or "Python Developer")
+        loc_q = quote_plus(location or "")
+        return f"https://www.naukri.com/{role_q.replace('+', '-')}-jobs?k={role_q}&l={loc_q}"
+
+    def _extract_cards(self, driver, limit=20):
+        jobs = []
+        cards = driver.find_elements(By.CSS_SELECTOR, "article.jobTuple, .srp-jobtuple-wrapper, .cust-job-tuple")
+        for idx, card in enumerate(cards[:limit]):
+            try:
+                title_elem = None
+                for sel in ["a.title", "a[title][href*='job']", ".title a"]:
+                    elems = card.find_elements(By.CSS_SELECTOR, sel)
+                    if elems:
+                        title_elem = elems[0]
+                        break
+
+                company_elem = None
+                for sel in [".comp-name", "a.comp-name", ".companyInfo .subTitle"]:
+                    elems = card.find_elements(By.CSS_SELECTOR, sel)
+                    if elems:
+                        company_elem = elems[0]
+                        break
+
+                location_elem = None
+                for sel in [".locWdth", ".location", ".loc-wrap span"]:
+                    elems = card.find_elements(By.CSS_SELECTOR, sel)
+                    if elems:
+                        location_elem = elems[0]
+                        break
+
+                experience_elem = None
+                for sel in [".expwdth", ".exp-wrap span", ".exp"]:
+                    elems = card.find_elements(By.CSS_SELECTOR, sel)
+                    if elems:
+                        experience_elem = elems[0]
+                        break
+
+                skills_elems = card.find_elements(By.CSS_SELECTOR, ".tags-gt li, .skill-tag, .tags li")
+                skills = [e.text.strip() for e in skills_elems if e.text.strip()][:15]
+
+                title = title_elem.text.strip() if title_elem else ""
+                url = title_elem.get_attribute("href") if title_elem else ""
+                if not title or not url:
+                    continue
+
+                company = company_elem.text.strip() if company_elem else "Unknown Company"
+                location = location_elem.text.strip() if location_elem else "Unknown"
+                experience_required = experience_elem.text.strip() if experience_elem else ""
+
+                desc = ""
+                desc_elems = card.find_elements(By.CSS_SELECTOR, ".job-desc, .job-description, .job-desc-n")
+                if desc_elems:
+                    desc = desc_elems[0].text.strip()
+
+                portal_job_id = f"naukri_live_{abs(hash(url))}"
+                jobs.append({
+                    "job_title": title,
+                    "company": company,
+                    "location": location,
+                    "portal": "naukri",
+                    "portal_job_id": portal_job_id,
+                    "description": desc,
+                    "required_skills": skills,
+                    "experience_required": experience_required,
+                    "salary_range": "",
+                    "job_url": url
+                })
+            except Exception:
+                continue
+        return jobs
+
+    def search_jobs(self, role, location, limit=20):
+        driver = self._build_driver()
+        try:
+            url = self._build_search_url(role, location)
+            driver.get(url)
+            WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+            time.sleep(3)
+            return self._extract_cards(driver, limit=limit)
+        finally:
+            driver.quit()
+
+
 class MockJobData:
     """
     Mock job data for testing and demonstration
@@ -291,4 +403,3 @@ class MockJobData:
                 "job_url": "https://www.indeed.com/job-66666",
             },
         ]
-

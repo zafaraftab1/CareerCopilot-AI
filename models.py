@@ -117,3 +117,31 @@ class DailyApplicationLog(db.Model):
             'interviews_received': self.interviews_received,
         }
 
+
+class RagDocument(db.Model):
+    """Lightweight vector store for RAG retrieval."""
+    __tablename__ = 'rag_documents'
+
+    id = db.Column(db.Integer, primary_key=True)
+    doc_type = db.Column(db.String(50), nullable=False)  # job, resume, note
+    doc_ref = db.Column(db.String(255), nullable=False)  # e.g. portal_job_id
+    content = db.Column(db.Text, nullable=False)
+    embedding = db.Column(db.JSON, default=list)
+    meta_json = db.Column(db.JSON, default=dict)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('doc_type', 'doc_ref', name='uq_rag_doc_type_ref'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'doc_type': self.doc_type,
+            'doc_ref': self.doc_ref,
+            'content': self.content,
+            'metadata': self.meta_json,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat(),
+        }

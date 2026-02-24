@@ -2,12 +2,19 @@
 Application automation engine for job applications
 """
 from datetime import datetime, date
-from models import db, JobApplication, DailyApplicationLog
+from models import db, JobApplication, JobListing, DailyApplicationLog
 from resume_matcher import SkillMatcher
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from config import Config
+import time
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 class ApplicationEngine:
     """
@@ -17,8 +24,14 @@ class ApplicationEngine:
     def __init__(self, config=None):
         self.config = config or Config()
         self.skill_matcher = SkillMatcher()
-        self.daily_limit = self.config.DAILY_APPLICATION_LIMIT
-        self.match_threshold = self.config.MATCH_SCORE_THRESHOLD
+        self.daily_limit = self._get_config_value('DAILY_APPLICATION_LIMIT', 20)
+        self.match_threshold = self._get_config_value('MATCH_SCORE_THRESHOLD', 70)
+
+    def _get_config_value(self, key, default=None):
+        """Read setting from class-style config or dict-like Flask config."""
+        if isinstance(self.config, dict):
+            return self.config.get(key, default)
+        return getattr(self.config, key, default)
 
     def get_daily_application_count(self, target_date=None):
         """Get number of applications submitted today"""
@@ -69,10 +82,37 @@ class ApplicationEngine:
             "passes_threshold": match_score >= self.match_threshold
         }
 
-    def create_application(self, job, candidate_id, match_score, analysis, status='applied'):
+    def _get_or_create_job_listing(self, job_data):
+        """Get existing job listing by portal_job_id or create a new one."""
+        portal_job_id = job_data.get('portal_job_id')
+        if not portal_job_id:
+            raise ValueError("portal_job_id is required to create an application")
+
+        listing = JobListing.query.filter_by(portal_job_id=portal_job_id).first()
+        if listing:
+            return listing
+
+        listing = JobListing(
+            job_title=job_data.get('job_title', 'Unknown Role'),
+            company=job_data.get('company', 'Unknown Company'),
+            location=job_data.get('location', 'Unknown Location'),
+            portal=job_data.get('portal', 'unknown'),
+            portal_job_id=portal_job_id,
+            description=job_data.get('description', ''),
+            required_skills=job_data.get('required_skills', []),
+            experience_required=job_data.get('experience_required', ''),
+            salary_range=job_data.get('salary_range', ''),
+            job_url=job_data.get('job_url', '')
+        )
+        db.session.add(listing)
+        db.session.commit()
+        return listing
+
+    def create_application(self, job_data, candidate_id, match_score, analysis, status='applied'):
         """Create a job application record"""
+        listing = self._get_or_create_job_listing(job_data)
         application = JobApplication(
-            job_id=job.id,
+            job_id=listing.id,
             candidate_id=candidate_id,
             match_score=match_score,
             match_analysis=analysis,
@@ -84,10 +124,13 @@ class ApplicationEngine:
         db.session.commit()
         return application
 
-    def check_duplicate_application(self, job_id, candidate_id):
-        """Check if candidate already applied to this job"""
-        existing = JobApplication.query.filter(
-            JobApplication.job_id == job_id,
+    def check_duplicate_application(self, portal_job_id, candidate_id):
+        """Check if candidate already applied to this portal job."""
+        if not portal_job_id:
+            return False
+
+        existing = JobApplication.query.join(JobListing).filter(
+            JobListing.portal_job_id == portal_job_id,
             JobApplication.candidate_id == candidate_id,
             JobApplication.status.in_(['applied', 'interview_received'])
         ).first()
@@ -111,7 +154,7 @@ class ApplicationEngine:
                 continue
 
             # Check for duplicates
-            if self.check_duplicate_application(job_data.get('id'), candidate_id):
+            if self.check_duplicate_application(job_data.get('portal_job_id'), candidate_id):
                 results.append({
                     "job": job_data,
                     "status": "skipped",
@@ -353,6 +396,90 @@ class EmailNotifier:
 
         return html
 
+
+class NaukriAutoApplyAgent:
+    """
+    Selenium executor for Naukri apply flow (best-effort).
+    """
+
+    def __init__(self, config=None, headless=False):
+        self.config = config or Config()
+        self.headless = headless
+
+    def _cfg(self, key, default=''):
+        if isinstance(self.config, dict):
+            return self.config.get(key, default)
+        return getattr(self.config, key, default)
+
+    def _driver(self):
+        options = Options()
+        if self.headless:
+            options.add_argument("--headless=new")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1600,1000")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        return webdriver.Chrome(options=options)
+
+    def login(self, driver, email=None, password=None):
+        email = email or self._cfg("NAUKRI_EMAIL", "")
+        password = password or self._cfg("NAUKRI_PASSWORD", "")
+
+        if not email or not password:
+            return {
+                "mode": "manual",
+                "ok": False,
+                "message": "NAUKRI_EMAIL/NAUKRI_PASSWORD missing. Login manually in opened browser."
+            }
+
+        driver.get("https://www.naukri.com/nlogin/login")
+        wait = WebDriverWait(driver, 20)
+        wait.until(EC.presence_of_element_located((By.ID, "usernameField"))).send_keys(email)
+        driver.find_element(By.ID, "passwordField").send_keys(password)
+        driver.find_element(By.XPATH, "//button[contains(@type,'submit')]").click()
+        time.sleep(4)
+        return {"mode": "credentials", "ok": True, "message": "Login attempted"}
+
+    def apply_to_job_url(self, driver, job_url, dry_run=False):
+        driver.get(job_url)
+        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+        time.sleep(2)
+
+        if dry_run:
+            return {"status": "dry_run", "job_url": job_url}
+
+        apply_candidates = [
+            "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'apply')]",
+            "//a[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'apply')]",
+        ]
+
+        for xp in apply_candidates:
+            buttons = driver.find_elements(By.XPATH, xp)
+            for btn in buttons:
+                try:
+                    if btn.is_displayed() and btn.is_enabled():
+                        btn.click()
+                        time.sleep(2)
+                        return {"status": "applied_click", "job_url": job_url}
+                except Exception:
+                    continue
+
+        return {"status": "apply_button_not_found", "job_url": job_url}
+
+    def batch_apply(self, job_urls, email=None, password=None, dry_run=False):
+        driver = self._driver()
+        try:
+            login_status = self.login(driver, email=email, password=password)
+            results = []
+            for url in job_urls:
+                try:
+                    results.append(self.apply_to_job_url(driver, url, dry_run=dry_run))
+                except Exception as exc:
+                    results.append({"status": "error", "job_url": url, "error": str(exc)})
+            return {"login": login_status, "results": results}
+        finally:
+            driver.quit()
+
     def _send_email(self, recipient_email, subject, html_content):
         """Send email via SMTP"""
         try:
@@ -378,4 +505,3 @@ class EmailNotifier:
         except Exception as e:
             print(f"Failed to send email: {str(e)}")
             raise
-

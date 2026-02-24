@@ -8,7 +8,9 @@ const state = {
     applications: [],
     searchResults: [],
     selectedJobs: new Set(),
-    charts: {}
+    charts: {},
+    aiSettings: null,
+    lastScrape: null
 };
 
 // ===========================
@@ -20,6 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDashboardData();
     loadApplications();
     loadResumeSummary();
+    loadAISettings();
+    loadAIInsights();
 });
 
 function initializeEventListeners() {
@@ -44,6 +48,7 @@ function initializeEventListeners() {
 
     document.getElementById('search-btn').addEventListener('click', searchJobs);
     document.getElementById('apply-selected-btn').addEventListener('click', applyToSelectedJobs);
+    document.getElementById('live-scrape-btn')?.addEventListener('click', liveScrapeNaukriFromJobsSection);
 
     // Resume upload
     const uploadArea = document.getElementById('upload-area');
@@ -73,6 +78,22 @@ function initializeEventListeners() {
     document.querySelector('.notification-btn').addEventListener('click', () => {
         showToast('You have 3 new notifications', 'info');
     });
+
+    // AI Copilot actions
+    document.getElementById('run-autopilot-btn')?.addEventListener('click', runAIAutopilot);
+    document.getElementById('generate-answers-btn')?.addEventListener('click', generateAIAutoAnswers);
+    document.getElementById('ai-auto-apply-toggle')?.addEventListener('change', saveAISettings);
+    document.getElementById('ai-auto-answer-toggle')?.addEventListener('change', saveAISettings);
+    document.getElementById('ai-min-match-score')?.addEventListener('change', saveAISettings);
+    document.getElementById('ai-max-auto-apply')?.addEventListener('change', saveAISettings);
+    document.getElementById('ai-answer-style')?.addEventListener('change', saveAISettings);
+    document.getElementById('ollama-enabled')?.addEventListener('change', saveAISettings);
+    document.getElementById('ollama-model')?.addEventListener('change', saveAISettings);
+    document.getElementById('ollama-base-url')?.addEventListener('change', saveAISettings);
+    document.getElementById('test-ollama-btn')?.addEventListener('click', checkOllamaConnection);
+    document.getElementById('scrape-naukri-btn')?.addEventListener('click', scrapeNaukriLive);
+    document.getElementById('query-rag-btn')?.addEventListener('click', testRagQuery);
+    document.getElementById('run-full-pipeline-btn')?.addEventListener('click', runFullPipeline);
 }
 
 // ===========================
@@ -141,6 +162,7 @@ async function loadDashboardData() {
         loadLocationStats();
         loadScoreDistribution();
         loadRecentApplications();
+        loadAIInsights();
     } catch (error) {
         console.error('Error loading dashboard data:', error);
         showToast('Failed to load dashboard data', 'error');
@@ -238,6 +260,73 @@ async function searchJobs() {
         console.error('Error searching jobs:', error);
         showToast('Failed to search jobs', 'error');
         resultsContainer.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px;"><p>Error searching jobs</p></div>';
+    }
+}
+
+async function liveScrapeNaukriFromJobsSection() {
+    const role = document.getElementById('role-filter').value || 'Python Developer';
+    const location = document.getElementById('location-filter').value || 'Hyderabad';
+    const minScore = Number(document.getElementById('score-filter').value || 70);
+    const resultsContainer = document.getElementById('jobs-container');
+    const statusEl = document.getElementById('scrape-status-content');
+    const button = document.getElementById('live-scrape-btn');
+
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scraping...';
+    }
+    if (resultsContainer) {
+        resultsContainer.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px;"><i class="fas fa-spinner fa-spin"></i> Running live Naukri scrape...</div>';
+    }
+    if (statusEl) statusEl.textContent = 'Scraping Naukri live...';
+
+    try {
+        const response = await fetch('/api/naukri/scrape-live', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role, location, limit: 20, headless: true })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Live scrape failed');
+
+        state.searchResults = data.jobs || [];
+        state.lastScrape = data;
+
+        const filtered = (data.jobs || []).filter(j => (j.match_score || 0) >= minScore);
+        resultsContainer.innerHTML = '';
+        if (filtered.length === 0) {
+            resultsContainer.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px;"><p>No live jobs matched current score filter.</p></div>';
+        } else {
+            filtered.forEach(job => {
+                const card = createJobCard(job);
+                resultsContainer.appendChild(card);
+            });
+        }
+
+        document.getElementById('apply-selected-btn').style.display = filtered.length > 0 ? 'flex' : 'none';
+
+        if (statusEl) {
+            statusEl.innerHTML = `
+                <strong>Last run:</strong> ${new Date().toLocaleString()}<br>
+                <strong>Role:</strong> ${role} | <strong>Location:</strong> ${location}<br>
+                <strong>Scraped:</strong> ${data.total_scraped || 0},
+                <strong>Matched:</strong> ${data.total_matched || 0},
+                <strong>Indexed:</strong> ${data.rag_indexed || 0}<br>
+                <strong>Source:</strong> ${data.used_fallback ? 'Fallback (mock data)' : 'Live Naukri'}<br>
+                ${data.scrape_error ? `<strong>Scrape Note:</strong> ${data.scrape_error}` : ''}
+            `;
+        }
+
+        showToast(`Live scrape complete: ${data.total_scraped || 0} jobs`, 'success');
+    } catch (error) {
+        if (statusEl) statusEl.textContent = `Live scrape error: ${error.message}`;
+        resultsContainer.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px;"><p>Live scrape failed.</p></div>';
+        showToast('Live scrape failed', 'error');
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-spider"></i> Live Scrape Naukri';
+        }
     }
 }
 
@@ -642,3 +731,317 @@ setInterval(() => {
     }
 }, 60000); // Refresh every minute
 
+// ===========================
+// AI Copilot
+// ===========================
+
+async function loadAISettings() {
+    try {
+        const response = await fetch('/api/ai/settings');
+        const settings = await response.json();
+        state.aiSettings = settings;
+        applyAISettingsToUI(settings);
+    } catch (error) {
+        console.error('Error loading AI settings:', error);
+    }
+}
+
+function applyAISettingsToUI(settings) {
+    const autoApply = document.getElementById('ai-auto-apply-toggle');
+    const autoAnswer = document.getElementById('ai-auto-answer-toggle');
+    const minScore = document.getElementById('ai-min-match-score');
+    const maxApply = document.getElementById('ai-max-auto-apply');
+    const style = document.getElementById('ai-answer-style');
+    const ollamaEnabled = document.getElementById('ollama-enabled');
+    const ollamaModel = document.getElementById('ollama-model');
+    const ollamaBaseUrl = document.getElementById('ollama-base-url');
+
+    if (autoApply) autoApply.checked = !!settings.auto_apply_enabled;
+    if (autoAnswer) autoAnswer.checked = !!settings.auto_answer_enabled;
+    if (minScore) minScore.value = settings.min_match_score ?? 70;
+    if (maxApply) maxApply.value = settings.max_daily_auto_apply ?? 10;
+    if (style) style.value = settings.answer_style ?? 'professional';
+    if (ollamaEnabled) ollamaEnabled.checked = settings.ollama_enabled !== false;
+    if (ollamaModel) ollamaModel.value = settings.ollama_model ?? 'llama3.2:3b';
+    if (ollamaBaseUrl) ollamaBaseUrl.value = settings.ollama_base_url ?? 'http://127.0.0.1:11434';
+}
+
+async function saveAISettings() {
+    try {
+        const payload = {
+            auto_apply_enabled: !!document.getElementById('ai-auto-apply-toggle')?.checked,
+            auto_answer_enabled: !!document.getElementById('ai-auto-answer-toggle')?.checked,
+            min_match_score: Number(document.getElementById('ai-min-match-score')?.value || 70),
+            max_daily_auto_apply: Number(document.getElementById('ai-max-auto-apply')?.value || 10),
+            answer_style: document.getElementById('ai-answer-style')?.value || 'professional',
+            ollama_enabled: !!document.getElementById('ollama-enabled')?.checked,
+            ollama_model: document.getElementById('ollama-model')?.value || 'llama3.2:3b',
+            ollama_base_url: document.getElementById('ollama-base-url')?.value || 'http://127.0.0.1:11434'
+        };
+
+        const response = await fetch('/api/ai/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const settings = await response.json();
+        state.aiSettings = settings;
+        showToast('AI Copilot settings updated', 'success');
+    } catch (error) {
+        console.error('Error saving AI settings:', error);
+        showToast('Failed to save AI settings', 'error');
+    }
+}
+
+async function checkOllamaConnection() {
+    await saveAISettings();
+
+    const status = document.getElementById('ollama-status');
+    const button = document.getElementById('test-ollama-btn');
+    if (button) {
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+    }
+
+    try {
+        const response = await fetch('/api/ai/provider-status');
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(data.error || 'Ollama is not reachable');
+        }
+
+        if (status) {
+            status.textContent = data.model_available
+                ? `Connected. Model "${data.configured_model}" is available.`
+                : `Connected, but model "${data.configured_model}" was not found. Pull it in Ollama first.`;
+        }
+        showToast('Ollama check completed', 'success');
+    } catch (error) {
+        if (status) status.textContent = `Connection failed: ${error.message}`;
+        showToast('Ollama connection failed', 'error');
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-plug"></i> Test Ollama Connection';
+        }
+    }
+}
+
+async function loadAIInsights() {
+    const container = document.getElementById('ai-insights-list');
+    if (!container) return;
+
+    try {
+        const response = await fetch('/api/ai/insights');
+        const data = await response.json();
+        container.innerHTML = (data.suggestions || [])
+            .map(item => `<div class="ai-insight-item"><i class="fas fa-lightbulb"></i> ${item}</div>`)
+            .join('');
+    } catch (error) {
+        console.error('Error loading AI insights:', error);
+        container.innerHTML = '<p>Unable to load AI insights.</p>';
+    }
+}
+
+async function runAIAutopilot() {
+    await saveAISettings();
+
+    const status = document.getElementById('autopilot-status');
+    const button = document.getElementById('run-autopilot-btn');
+    if (!button) return;
+
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+    if (status) status.textContent = 'AI Autopilot is scanning jobs and applying to best matches...';
+
+    try {
+        const payload = {
+            min_match_score: Number(document.getElementById('ai-min-match-score')?.value || 70),
+            max_apply: Number(document.getElementById('ai-max-auto-apply')?.value || 10),
+            role: document.getElementById('role-filter')?.value || '',
+            location: document.getElementById('location-filter')?.value || ''
+        };
+
+        const response = await fetch('/api/ai/autopilot/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || data.error || 'Autopilot run failed');
+        }
+
+        const summary = data.summary || {};
+        if (status) {
+            status.textContent = `Done. Scanned ${summary.scanned_jobs || 0}, eligible ${summary.eligible_jobs || 0}, applied ${summary.applied || 0}.`;
+        }
+
+        showToast(`AI Autopilot applied to ${summary.applied || 0} jobs`, 'success');
+        loadDashboardData();
+        loadApplications();
+    } catch (error) {
+        console.error('Error running AI autopilot:', error);
+        if (status) status.textContent = `Autopilot error: ${error.message}`;
+        showToast(error.message || 'Failed to run AI autopilot', 'error');
+    } finally {
+        button.disabled = false;
+        button.innerHTML = '<i class="fas fa-rocket"></i> Run AI Autopilot Now';
+    }
+}
+
+function getAIContextJobId() {
+    if (state.selectedJobs.size > 0) {
+        return Array.from(state.selectedJobs)[0];
+    }
+    if (state.searchResults.length > 0) {
+        return state.searchResults[0].portal_job_id;
+    }
+    return null;
+}
+
+async function generateAIAutoAnswers() {
+    if (!document.getElementById('ai-auto-answer-toggle')?.checked) {
+        showToast('Enable Auto Answers first', 'info');
+        return;
+    }
+
+    await saveAISettings();
+
+    const container = document.getElementById('ai-answers-container');
+    const jobId = getAIContextJobId();
+    const style = document.getElementById('ai-answer-style')?.value || 'professional';
+    const rawQuestions = document.getElementById('ai-questions-input')?.value || '';
+    const parsedQuestions = rawQuestions
+        .split('\n')
+        .map(q => q.trim())
+        .filter(Boolean);
+    const questions = parsedQuestions.length > 0 ? parsedQuestions : [
+        'Tell us about yourself.',
+        'How many years of Python experience do you have?',
+        'What is your current/preferred location?'
+    ];
+    if (container) container.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Generating answers...</p>';
+
+    try {
+        const response = await fetch('/api/ai/answers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                portal_job_id: jobId,
+                style,
+                questions
+            })
+        });
+        const data = await response.json();
+
+        if (!container) return;
+        container.innerHTML = (data.answers || []).map(item => `
+            <div class="ai-answer-card">
+                <div class="question">${item.question} <span style="font-size:12px;color:#667eea;">(${item.source || data.provider || 'ai'})</span></div>
+                <div class="answer">${item.answer}</div>
+            </div>
+        `).join('');
+
+        showToast('AI answers generated', 'success');
+    } catch (error) {
+        console.error('Error generating AI answers:', error);
+        if (container) container.innerHTML = '<p>Failed to generate answers.</p>';
+        showToast('Failed to generate AI answers', 'error');
+    }
+}
+
+function getPipelineInputs() {
+    return {
+        role: document.getElementById('pipeline-role')?.value || 'Python Developer',
+        location: document.getElementById('pipeline-location')?.value || 'Hyderabad',
+        minScore: Number(document.getElementById('pipeline-min-score')?.value || 70),
+        ragQuery: document.getElementById('rag-query-input')?.value || 'python backend aws',
+        dryRun: !!document.getElementById('pipeline-dry-run')?.checked,
+        headless: !!document.getElementById('pipeline-headless')?.checked
+    };
+}
+
+function renderPipelineOutput(title, payload) {
+    const out = document.getElementById('pipeline-output');
+    if (!out) return;
+    out.innerHTML = `
+        <div class="ai-answer-card">
+            <div class="question">${title}</div>
+            <div class="answer"><pre style="white-space:pre-wrap;margin:0;">${JSON.stringify(payload, null, 2)}</pre></div>
+        </div>
+    `;
+}
+
+async function scrapeNaukriLive() {
+    const status = document.getElementById('pipeline-status');
+    const { role, location, headless } = getPipelineInputs();
+    if (status) status.textContent = 'Scraping live Naukri jobs...';
+    try {
+        const response = await fetch('/api/naukri/scrape-live', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role, location, limit: 20, headless })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Scrape failed');
+        if (status) status.textContent = `Scraped ${data.total_scraped}, matched ${data.total_matched}, indexed ${data.rag_indexed}.`;
+        renderPipelineOutput('Naukri Scrape Result', data);
+        loadDashboardData();
+    } catch (error) {
+        if (status) status.textContent = `Scrape error: ${error.message}`;
+        showToast('Naukri scrape failed', 'error');
+    }
+}
+
+async function testRagQuery() {
+    const status = document.getElementById('pipeline-status');
+    const { ragQuery } = getPipelineInputs();
+    if (status) status.textContent = 'Running RAG retrieval...';
+    try {
+        const response = await fetch('/api/rag/query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: ragQuery, top_k: 5 })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'RAG query failed');
+        if (status) status.textContent = `Retrieved ${data.results?.length || 0} results from vector DB.`;
+        renderPipelineOutput('RAG Query Result', data);
+    } catch (error) {
+        if (status) status.textContent = `RAG error: ${error.message}`;
+        showToast('RAG query failed', 'error');
+    }
+}
+
+async function runFullPipeline() {
+    const status = document.getElementById('pipeline-status');
+    const { role, location, minScore, dryRun, headless } = getPipelineInputs();
+    if (status) status.textContent = 'Running full pipeline...';
+    try {
+        const response = await fetch('/api/pipeline/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                role,
+                location,
+                min_score: minScore,
+                max_apply: 5,
+                dry_run: dryRun,
+                headless
+            })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Pipeline run failed');
+        if (status) status.textContent = `Pipeline done. Scraped ${data.scraped}, eligible ${data.eligible}, attempted ${data.apply_attempted}.`;
+        renderPipelineOutput('Full Pipeline Result', data);
+        loadDashboardData();
+        loadApplications();
+    } catch (error) {
+        if (status) status.textContent = `Pipeline error: ${error.message}`;
+        showToast('Pipeline run failed', 'error');
+    }
+}

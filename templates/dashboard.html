@@ -127,6 +127,15 @@
                         </div>
                     </div>
 
+                    <div class="card ai-copilot-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-brain"></i> AI Copilot Insights</h3>
+                        </div>
+                        <div id="ai-insights-list" class="ai-insights-list">
+                            <p><i class="fas fa-spinner fa-spin"></i> Loading AI insights...</p>
+                        </div>
+                    </div>
+
                     <!-- Charts Row -->
                     <div class="charts-grid">
                         <div class="chart-card">
@@ -224,6 +233,18 @@
                             <button class="btn btn-primary" id="search-btn">
                                 <i class="fas fa-search"></i> Search Jobs
                             </button>
+                            <button class="btn btn-secondary" id="live-scrape-btn">
+                                <i class="fas fa-spider"></i> Live Scrape Naukri
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card scrape-status-card" id="scrape-status-card">
+                        <div class="card-header">
+                            <h3>Live Scrape Status</h3>
+                        </div>
+                        <div id="scrape-status-content">
+                            No live scrape executed yet.
                         </div>
                     </div>
 
@@ -374,6 +395,74 @@
                         </div>
 
                         <div class="settings-group">
+                            <h4>AI Copilot</h4>
+                            <div class="setting-item">
+                                <label>
+                                    <input type="checkbox" id="ai-auto-apply-toggle">
+                                    Enable Auto Apply
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label>
+                                    <input type="checkbox" id="ai-auto-answer-toggle" checked>
+                                    Enable Auto Answers
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label>AI Min Match Score (%)</label>
+                                <input type="number" id="ai-min-match-score" value="70" min="0" max="100">
+                            </div>
+                            <div class="setting-item">
+                                <label>Max Auto Applies / Run</label>
+                                <input type="number" id="ai-max-auto-apply" value="10" min="1" max="100">
+                            </div>
+                            <div class="setting-item">
+                                <label>Answer Style</label>
+                                <select id="ai-answer-style">
+                                    <option value="professional">Professional</option>
+                                    <option value="concise">Concise</option>
+                                    <option value="confident">Confident</option>
+                                </select>
+                            </div>
+                            <div class="setting-item">
+                                <label>Ollama Base URL</label>
+                                <input type="text" id="ollama-base-url" value="http://127.0.0.1:11434">
+                            </div>
+                            <div class="setting-item">
+                                <label>Ollama Model</label>
+                                <input type="text" id="ollama-model" value="llama3.2:3b">
+                            </div>
+                            <div class="setting-item">
+                                <label>
+                                    <input type="checkbox" id="ollama-enabled" checked>
+                                    Use Local Ollama for Answers
+                                </label>
+                            </div>
+                            <div class="setting-item ai-actions">
+                                <button class="btn btn-secondary" id="test-ollama-btn">
+                                    <i class="fas fa-plug"></i> Test Ollama Connection
+                                </button>
+                            </div>
+                            <div id="ollama-status" class="ai-status-text"></div>
+                            <div class="setting-item">
+                                <label>Paste Job Questions (one per line)</label>
+                                <textarea id="ai-questions-input" rows="5" placeholder="How many years of Python experience do you have?
+Are you open to relocation?
+What is your current location?"></textarea>
+                            </div>
+                            <div class="setting-item ai-actions">
+                                <button class="btn btn-success" id="run-autopilot-btn">
+                                    <i class="fas fa-rocket"></i> Run AI Autopilot Now
+                                </button>
+                                <button class="btn btn-primary" id="generate-answers-btn">
+                                    <i class="fas fa-comment-dots"></i> Generate Auto Answers
+                                </button>
+                            </div>
+                            <div id="autopilot-status" class="ai-status-text"></div>
+                            <div id="ai-answers-container" class="ai-answers-container"></div>
+                        </div>
+
+                        <div class="settings-group">
                             <h4>Preferred Locations</h4>
                             <div class="location-checkboxes">
                                 <label><input type="checkbox" value="Hyderabad" checked> Hyderabad</label>
@@ -383,6 +472,51 @@
                                 <label><input type="checkbox" value="Mumbai" checked> Mumbai</label>
                                 <label><input type="checkbox" value="Kolkata" checked> Kolkata</label>
                             </div>
+                        </div>
+
+                        <div class="settings-group">
+                            <h4>Live Naukri + RAG Pipeline</h4>
+                            <div class="setting-item">
+                                <label>Role</label>
+                                <input type="text" id="pipeline-role" value="Python Developer">
+                            </div>
+                            <div class="setting-item">
+                                <label>Location</label>
+                                <input type="text" id="pipeline-location" value="Hyderabad">
+                            </div>
+                            <div class="setting-item">
+                                <label>Min Match Score</label>
+                                <input type="number" id="pipeline-min-score" value="70" min="0" max="100">
+                            </div>
+                            <div class="setting-item">
+                                <label>
+                                    <input type="checkbox" id="pipeline-dry-run" checked>
+                                    Dry Run (don’t submit actual applications)
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <label>
+                                    <input type="checkbox" id="pipeline-headless" checked>
+                                    Headless Browser
+                                </label>
+                            </div>
+                            <div class="setting-item ai-actions">
+                                <button class="btn btn-primary" id="scrape-naukri-btn">
+                                    <i class="fas fa-spider"></i> Scrape Naukri Live
+                                </button>
+                                <button class="btn btn-secondary" id="query-rag-btn">
+                                    <i class="fas fa-database"></i> Test RAG Retrieval
+                                </button>
+                                <button class="btn btn-success" id="run-full-pipeline-btn">
+                                    <i class="fas fa-play"></i> Run Full Pipeline
+                                </button>
+                            </div>
+                            <div class="setting-item">
+                                <label>RAG Query</label>
+                                <textarea id="rag-query-input" rows="3" placeholder="python backend aws 4 years"></textarea>
+                            </div>
+                            <div id="pipeline-status" class="ai-status-text"></div>
+                            <div id="pipeline-output" class="ai-answers-container"></div>
                         </div>
 
                         <div style="margin-top: 30px;">
@@ -404,4 +538,3 @@
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>
 </html>
-

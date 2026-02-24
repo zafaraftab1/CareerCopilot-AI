@@ -174,7 +174,18 @@ class JobApplicationScheduler:
                     try:
                         # Submit application
                         app = self.app_engine.create_application(
-                            job,
+                            {
+                                'job_title': job.job_title,
+                                'company': job.company,
+                                'location': job.location,
+                                'portal': job.portal,
+                                'portal_job_id': job.portal_job_id,
+                                'description': job.description,
+                                'required_skills': job.required_skills or [],
+                                'experience_required': job.experience_required,
+                                'salary_range': job.salary_range,
+                                'job_url': job.job_url
+                            },
                             candidate.id,
                             evaluation['match_score'],
                             evaluation['analysis']
@@ -243,4 +254,3 @@ def create_scheduler(app, config=None):
     """Factory function to create and configure scheduler"""
     scheduler = JobApplicationScheduler(app, config)
     return scheduler
-

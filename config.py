@@ -36,6 +36,15 @@ class Config:
         'Backend Developer'
     ]
 
+    # Local LLM (Ollama) configuration
+    OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://127.0.0.1:11434')
+    OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'llama3.2:3b')
+    OLLAMA_EMBED_MODEL = os.getenv('OLLAMA_EMBED_MODEL', OLLAMA_MODEL)
+
+    # Naukri credentials for automated apply
+    NAUKRI_EMAIL = os.getenv('NAUKRI_EMAIL', '')
+    NAUKRI_PASSWORD = os.getenv('NAUKRI_PASSWORD', '')
+
 class DevelopmentConfig(Config):
     """Development configuration"""
     DEBUG = True
@@ -55,4 +64,3 @@ config_by_name = {
     'testing': TestingConfig,
     'default': DevelopmentConfig
 }
-
