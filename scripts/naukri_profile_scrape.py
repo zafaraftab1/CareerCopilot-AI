@@ -106,6 +106,14 @@ def value_after(lines, label):
     return None
 
 
+def idx_startswith(lines, prefix):
+    p = prefix.lower()
+    for i, line in enumerate(lines):
+        if line.lower().startswith(p):
+            return i
+    return -1
+
+
 def section_between(lines, start, end_markers):
     s = idx_of(lines, start)
     if s < 0:
@@ -131,43 +139,81 @@ def dedupe(items):
     return out
 
 
-def best_effort_extract(page_text):
+def best_effort_extract(page_text, page_html):
     lines = cleaned_lines(page_text)
     data = {"top_lines": lines[:25]}
 
-    profile_last_updated_idx = idx_of(lines, "Profile last updated")
-    if profile_last_updated_idx >= 2:
-        data["name"] = lines[profile_last_updated_idx - 2]
+    profile_last_updated_idx = idx_startswith(lines, "Profile last updated")
+    if profile_last_updated_idx >= 1:
+        data["name"] = lines[profile_last_updated_idx - 1]
+    if profile_last_updated_idx >= 0:
+        if profile_last_updated_idx + 1 < len(lines):
+            data["location"] = lines[profile_last_updated_idx + 1]
+        if profile_last_updated_idx + 2 < len(lines):
+            data["experience"] = lines[profile_last_updated_idx + 2]
+        if profile_last_updated_idx + 3 < len(lines):
+            data["current_ctc"] = lines[profile_last_updated_idx + 3]
 
-    data["location"] = value_after(lines, "Hyderabad, INDIA") or value_after(lines, "location")
-    data["experience"] = value_after(lines, "experience") or value_after(lines, "Experience")
-    data["current_ctc"] = value_after(lines, "₹ 14,00,000") or value_after(lines, "Current CTC")
-    data["phone"] = value_after(lines, "phone")
-    data["email"] = value_after(lines, "mail")
+    phones = [x for x in lines if re.fullmatch(r"\d{10,15}", x)]
+    if phones:
+        data["phone"] = phones[0]
+    emails = re.findall(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", page_text)
+    if emails:
+        data["email"] = emails[0]
 
     exp = re.search(r"(\d+(?:\.\d+)?)\s+years?", page_text, re.IGNORECASE)
     if exp:
         data["experience_years"] = exp.group(1)
 
-    headline = section_between(lines, "Resume headline", ["Key skills", "Employment", "Education"])
-    if headline:
-        data["resume_headline"] = " ".join(headline)
+    headline_idx = idx_startswith(lines, "Resume headline")
+    if headline_idx >= 0 and headline_idx + 1 < len(lines):
+        data["resume_headline"] = lines[headline_idx + 1]
 
-    skills = section_between(lines, "Key skills", ["Employment", "Education", "IT skills", "Projects"])
+    skills = dedupe(re.findall(r'<span class=\"chip typ-14Medium\" title=\"([^\"]+)\"', page_html))
     if skills:
-        data["skills"] = dedupe(skills)
+        data["skills"] = skills
+
+    employment_section = section_between(lines, "Employment", ["Education"])
+    employment_section = [
+        x for x in employment_section
+        if x.lower() not in {"add employment", "editonetheme"} and not x.lower().startswith("add job profile")
+    ]
+    employment = []
+    i = 0
+    while i + 3 < len(employment_section):
+        title = employment_section[i]
+        company = employment_section[i + 1]
+        emp_type = employment_section[i + 2]
+        duration = employment_section[i + 3]
+        if " to " in duration.lower() and "(" in duration and ")" in duration:
+            item = {
+                "title": title,
+                "company": company,
+                "employment_type": emp_type,
+                "duration": duration,
+            }
+            if i + 4 < len(employment_section) and " to " not in employment_section[i + 4].lower():
+                item["summary"] = employment_section[i + 4]
+                i += 1
+            employment.append(item)
+            i += 4
+        else:
+            i += 1
+    if employment:
+        data["employment"] = employment
 
     education = section_between(lines, "Education", ["IT skills", "Projects", "Profile summary", "Certifications", "Career profile"])
     if education:
-        data["education"] = education
+        data["education"] = [x for x in education if not x.lower().startswith("add ")]
 
-    certifications = section_between(lines, "Certifications", ["Career profile", "Personal details", "Accomplishments"])
-    if certifications:
-        data["certifications"] = certifications
+    cert_line = [x for x in lines if "Certification" in x and "Add details of certifications" not in x]
+    cert_desc = [x for x in lines if "Add details of certifications" in x]
+    if cert_line and not cert_desc:
+        data["certifications"] = cert_line
 
-    profile_summary = section_between(lines, "Profile summary", ["Accomplishments", "Career profile", "Personal details"])
-    if profile_summary:
-        data["profile_summary"] = " ".join(profile_summary)
+    profile_summary_idx = idx_startswith(lines, "Profile summary")
+    if profile_summary_idx >= 0 and profile_summary_idx + 1 < len(lines):
+        data["profile_summary"] = lines[profile_summary_idx + 1]
 
     data["preferred_work_location"] = value_after(lines, "Preferred work location")
     data["expected_salary"] = value_after(lines, "Expected salary")
@@ -237,7 +283,7 @@ def main():
 
         page_text = text_of(driver)
         if page_text:
-            extracted = best_effort_extract(page_text)
+            extracted = best_effort_extract(page_text, driver.page_source)
             result["profile"] = extracted
 
         blocked = result["manual_reason"] == "access_denied"
