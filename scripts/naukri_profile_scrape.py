@@ -114,6 +114,15 @@ def idx_startswith(lines, prefix):
     return -1
 
 
+def all_indices_of(lines, needle):
+    n = needle.lower()
+    out = []
+    for i, line in enumerate(lines):
+        if line.lower() == n:
+            out.append(i)
+    return out
+
+
 def section_between(lines, start, end_markers):
     s = idx_of(lines, start)
     if s < 0:
@@ -165,7 +174,7 @@ def best_effort_extract(page_text, page_html):
     if exp:
         data["experience_years"] = exp.group(1)
 
-    headline_idx = idx_startswith(lines, "Resume headline")
+    headline_idx = idx_startswith(lines, "Resume headlineeditOneTheme")
     if headline_idx >= 0 and headline_idx + 1 < len(lines):
         data["resume_headline"] = lines[headline_idx + 1]
 
@@ -173,7 +182,17 @@ def best_effort_extract(page_text, page_html):
     if skills:
         data["skills"] = skills
 
-    employment_section = section_between(lines, "Employment", ["Education"])
+    edu_indices = all_indices_of(lines, "Education")
+    employment_indices = all_indices_of(lines, "Employment")
+    real_education_idx = edu_indices[-1] if edu_indices else -1
+    real_employment_idx = -1
+    for idx in employment_indices:
+        if real_education_idx == -1 or idx < real_education_idx:
+            real_employment_idx = idx
+
+    employment_section = []
+    if real_employment_idx >= 0 and real_education_idx > real_employment_idx:
+        employment_section = lines[real_employment_idx + 1 : real_education_idx]
     employment_section = [
         x for x in employment_section
         if x.lower() not in {"add employment", "editonetheme"} and not x.lower().startswith("add job profile")
@@ -202,16 +221,30 @@ def best_effort_extract(page_text, page_html):
     if employment:
         data["employment"] = employment
 
-    education = section_between(lines, "Education", ["IT skills", "Projects", "Profile summary", "Certifications", "Career profile"])
+    education = []
+    if real_education_idx >= 0:
+        end_candidates = [
+            idx_of(lines[real_education_idx + 1 :], "IT skills"),
+            idx_of(lines[real_education_idx + 1 :], "Projects"),
+            idx_of(lines[real_education_idx + 1 :], "Profile summary"),
+            idx_of(lines[real_education_idx + 1 :], "Career profile"),
+        ]
+        end_candidates = [x for x in end_candidates if x >= 0]
+        end = (real_education_idx + 1 + min(end_candidates)) if end_candidates else len(lines)
+        education = lines[real_education_idx + 1 : end]
     if education:
-        data["education"] = [x for x in education if not x.lower().startswith("add ")]
+        data["education"] = [
+            x for x in education
+            if not x.lower().startswith("add ")
+            and x.lower() != "editonetheme"
+        ]
 
     cert_line = [x for x in lines if "Certification" in x and "Add details of certifications" not in x]
     cert_desc = [x for x in lines if "Add details of certifications" in x]
     if cert_line and not cert_desc:
         data["certifications"] = cert_line
 
-    profile_summary_idx = idx_startswith(lines, "Profile summary")
+    profile_summary_idx = idx_startswith(lines, "Profile summaryeditOneTheme")
     if profile_summary_idx >= 0 and profile_summary_idx + 1 < len(lines):
         data["profile_summary"] = lines[profile_summary_idx + 1]
 
