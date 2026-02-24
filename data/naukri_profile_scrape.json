@@ -8,7 +8,7 @@
   "profile": {
     "top_lines": [
       "Jobs",
-      "1",
+      "2",
       "Companies",
       "Services",
       "1",
@@ -105,7 +105,7 @@
     "department": "Engineering - Software & QA",
     "job_role": "Software Development - Other"
   },
-  "timestamp": 1771929029,
+  "timestamp": 1771929197,
   "artifacts": {
     "screenshot": "data/naukri_profile_scrape.png",
     "html": "data/naukri_profile_scrape.html",
