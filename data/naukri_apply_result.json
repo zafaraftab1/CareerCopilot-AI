@@ -1,0 +1,32 @@
+{
+  "date": "2026-02-24",
+  "daily_limit": 30,
+  "already_applied_today": 0,
+  "remaining_capacity_before_run": 30,
+  "searched_jobs": 0,
+  "shortlisted": 0,
+  "applied_now": 0,
+  "attempted_now": 0,
+  "roles_used": [
+    "Python GenAI Developer",
+    "Gen AI Engineer",
+    "Python Developer",
+    "Backend Developer"
+  ],
+  "locations_used": [
+    "Hyderabad Secunderabad",
+    "Gurgaon Gurugram",
+    "Noida",
+    "Mumbai",
+    "Kolkata",
+    "Delhi   NCR"
+  ],
+  "shortlist": [],
+  "apply": {
+    "login": {
+      "ok": false,
+      "message": "No jobs shortlisted"
+    },
+    "results": []
+  }
+}
