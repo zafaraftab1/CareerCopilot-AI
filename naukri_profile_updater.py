@@ -32,19 +32,19 @@ load_dotenv()
 EMAIL    = os.getenv("NAUKRI_EMAIL", "")
 PASSWORD = os.getenv("NAUKRI_PASSWORD", "")
 
-# Script rotates through these headlines one per day
+# 4 headline variants — rotated daily (keep them similar so they look genuine)
 HEADLINE_VARIANTS = [
-    "Python Developer | AI/ML Engineer | Backend Development | 2+ Years",
-    "AI/ML Engineer | Python Developer | Machine Learning | Backend",
-    "Backend Developer | Python | Artificial Intelligence | Machine Learning",
-    "Python | Machine Learning Engineer | AI Developer | Backend Systems",
+    "AWS Python Developer | Generative AI Engineer | Backend Microservices & Serverless Architect | LLM, RAG, LangChain Expert",
+    "Python Developer | Generative AI Engineer | AWS Serverless & Microservices | LLM, RAG & LangChain",
+    "Generative AI Engineer | Python Developer | AWS Lambda & Serverless | LangChain, RAG, LLM Expert",
+    "Backend Microservices Architect | Python | AWS Cloud | Generative AI | LLM & RAG Specialist",
 ]
 
-# Script cycles through these skills — adds the "next" one daily
-ALL_SKILLS = [
-    "Python", "Machine Learning", "Deep Learning", "NLP",
-    "Django", "Flask", "FastAPI", "SQL", "TensorFlow", "PyTorch",
-    "Docker", "Git", "REST API", "Data Analysis", "Scikit-learn",
+# Skills to cycle through daily (not already in profile — adds variety)
+ROTATING_SKILLS = [
+    "Docker", "Kubernetes", "Redis", "Git",
+    "OpenAI API", "Pinecone", "DynamoDB", "Terraform",
+    "GitHub Actions", "GraphQL", "MongoDB", "Jenkins",
 ]
 
 # ─── PATHS ───────────────────────────────────────────────────────────────────
@@ -104,25 +104,21 @@ def naukri_login(driver, email: str, password: str) -> bool:
     driver.get("https://www.naukri.com/nlogin/login")
     time.sleep(3)
 
-    # Fill email
     email_elem = None
     for by, sel in [
         (By.ID, "usernameField"),
         (By.CSS_SELECTOR, "input[type='email']"),
         (By.CSS_SELECTOR, "input[placeholder*='Email']"),
-        (By.CSS_SELECTOR, "input[name='email']"),
     ]:
         elems = driver.find_elements(by, sel)
         if elems:
             email_elem = elems[0]
             break
 
-    # Fill password
     pwd_elem = None
     for by, sel in [
         (By.ID, "passwordField"),
         (By.CSS_SELECTOR, "input[type='password']"),
-        (By.CSS_SELECTOR, "input[name='password']"),
     ]:
         elems = driver.find_elements(by, sel)
         if elems:
@@ -138,7 +134,6 @@ def naukri_login(driver, email: str, password: str) -> bool:
     pwd_elem.clear()
     pwd_elem.send_keys(password)
 
-    # Submit
     submit_btns = driver.find_elements(By.XPATH, "//button[@type='submit']")
     if submit_btns:
         submit_btns[0].click()
@@ -147,84 +142,57 @@ def naukri_login(driver, email: str, password: str) -> bool:
 
     time.sleep(5)
     logged_in = "nlogin" not in driver.current_url
-    log.info(f"Login result — URL: {driver.current_url} | logged_in: {logged_in}")
+    log.info(f"Login — URL: {driver.current_url} | success: {logged_in}")
     return logged_in
 
 
 def update_headline(driver, headline: str) -> bool:
+    """Open headline edit modal, replace text, save."""
     log = logging.getLogger(__name__)
     try:
         driver.get("https://www.naukri.com/mnjuser/profile")
         time.sleep(4)
         wait = WebDriverWait(driver, 15)
 
-        # Click the pencil/edit icon near the Resume Headline section
-        edit_clicked = False
-        for xpath in [
-            "//div[contains(@class,'resumeHeadline')]//span[contains(@class,'edit') or contains(@class,'pencil')]",
-            "//section[contains(@class,'resumeHeadline')]//span[@title='Edit']",
-            "//div[@id='resumeHeadline']//span[contains(@class,'edit')]",
-            "//p[@class='headline']//parent::div//span[contains(@class,'edit')]",
-        ]:
-            elems = driver.find_elements(By.XPATH, xpath)
-            if elems:
-                driver.execute_script("arguments[0].click();", elems[0])
-                edit_clicked = True
-                time.sleep(2)
-                break
-
-        if not edit_clicked:
-            log.warning("Headline edit button not found — trying JS scroll + click")
-            driver.execute_script(
-                "document.querySelectorAll('[class*=edit]').forEach(e => {"
-                "  if(e.closest('[class*=headline]')) e.click();"
-                "});"
-            )
-            time.sleep(2)
-
-        # Find the textarea / input
-        input_elem = None
-        for by, sel in [
-            (By.CSS_SELECTOR, "textarea[name='headline']"),
-            (By.CSS_SELECTOR, "input[name='headline']"),
-            (By.XPATH, "//textarea[contains(@placeholder,'eadline')]"),
-            (By.XPATH, "//input[contains(@placeholder,'eadline')]"),
-            (By.CSS_SELECTOR, ".editHeadline textarea"),
-            (By.CSS_SELECTOR, ".editHeadline input"),
-        ]:
-            elems = driver.find_elements(by, sel)
-            if elems:
-                input_elem = elems[0]
-                break
-
-        if not input_elem:
-            log.warning("Headline input field not found")
-            return False
-
-        # Clear and type new headline
-        input_elem.click()
-        input_elem.send_keys(Keys.CONTROL + "a")
-        input_elem.send_keys(Keys.DELETE)
-        input_elem.clear()
+        # Click the edit icon inside the Resume headline widget
+        edit_btn = wait.until(EC.presence_of_element_located((
+            By.XPATH,
+            "//div[contains(@class,'widgetHead') and contains(.,'Resume headline')]"
+            "//span[contains(@class,'edit')]"
+        )))
+        driver.execute_script("arguments[0].scrollIntoView(true);", edit_btn)
         time.sleep(0.5)
-        input_elem.send_keys(headline)
+        driver.execute_script("arguments[0].click();", edit_btn)
+        log.info("Clicked headline edit button")
+
+        # Wait for the modal textarea to appear
+        textarea = wait.until(EC.visibility_of_element_located((
+            By.CSS_SELECTOR, "textarea[name='resumeHeadline'], #resumeHeadlineTxt"
+        )))
         time.sleep(1)
 
-        # Click Save
-        for xpath in [
-            "//button[contains(text(),'Save')]",
-            "//button[contains(@class,'save')]",
-            "//input[@type='submit']",
-        ]:
-            btns = driver.find_elements(By.XPATH, xpath)
-            if btns:
-                btns[0].click()
-                time.sleep(3)
-                log.info(f"Headline updated: {headline}")
-                return True
+        # Clear and type new headline
+        textarea.click()
+        textarea.send_keys(Keys.CONTROL + "a")
+        textarea.send_keys(Keys.COMMAND + "a")   # macOS
+        textarea.clear()
+        time.sleep(0.3)
+        textarea.send_keys(headline)
+        log.info(f"Typed headline: {headline}")
+        time.sleep(1)
 
-        log.warning("Save button not found after editing headline")
-        return False
+        # Click Save — use JS to avoid interactability issues (btn-dark-ot confirmed via debug)
+        time.sleep(1)
+        driver.execute_script("""
+            var btns = document.querySelectorAll('button.btn-dark-ot');
+            for (var b of btns) {
+                if (b.offsetParent !== null) { b.click(); break; }
+            }
+        """)
+        time.sleep(3)
+
+        log.info(f"Headline saved: {headline}")
+        return True
 
     except Exception as e:
         log.error(f"Headline update failed: {e}")
@@ -232,83 +200,69 @@ def update_headline(driver, headline: str) -> bool:
 
 
 def add_key_skill(driver, skill: str) -> bool:
+    """Open skills edit modal, type new skill, save."""
     log = logging.getLogger(__name__)
     try:
         driver.get("https://www.naukri.com/mnjuser/profile")
         time.sleep(4)
         wait = WebDriverWait(driver, 15)
 
-        # Click edit on Key Skills section
-        edit_clicked = False
-        for xpath in [
-            "//div[contains(@class,'keySkills')]//span[contains(@class,'edit') or contains(@class,'pencil')]",
-            "//section[contains(@class,'keySkills')]//span[@title='Edit']",
-            "//div[@id='keySkills']//span[contains(@class,'edit')]",
-        ]:
-            elems = driver.find_elements(By.XPATH, xpath)
-            if elems:
-                driver.execute_script("arguments[0].click();", elems[0])
-                edit_clicked = True
-                time.sleep(2)
-                break
+        # Click the edit icon inside the Key skills widget
+        edit_btn = wait.until(EC.presence_of_element_located((
+            By.XPATH,
+            "//div[contains(@class,'widgetHead') and contains(.,'Key skills')]"
+            "//span[contains(@class,'edit')]"
+        )))
+        driver.execute_script("arguments[0].scrollIntoView(true);", edit_btn)
+        time.sleep(0.5)
+        driver.execute_script("arguments[0].click();", edit_btn)
+        log.info("Clicked skills edit button")
 
-        if not edit_clicked:
-            log.warning("Skills edit button not found")
-            return False
+        # Wait for the "Add skills" input inside the modal
+        skill_input = wait.until(EC.visibility_of_element_located((
+            By.CSS_SELECTOR, "input[placeholder='Add skills'], #keySkillSugg"
+        )))
+        time.sleep(1)
 
-        # Find skills input field
-        skill_input = None
-        for by, sel in [
-            (By.XPATH, "//input[contains(@placeholder,'kill')]"),
-            (By.CSS_SELECTOR, "input[placeholder*='skill']"),
-            (By.CSS_SELECTOR, "input[placeholder*='Skill']"),
-            (By.CSS_SELECTOR, ".keyskillSuggest input"),
-        ]:
-            elems = driver.find_elements(by, sel)
-            if elems:
-                skill_input = elems[0]
-                break
-
-        if not skill_input:
-            log.warning("Skill input field not found")
-            return False
-
+        # Type skill and wait for autocomplete
         skill_input.click()
         skill_input.send_keys(skill)
         time.sleep(2)
 
-        # Select from autocomplete dropdown
-        selected_from_dropdown = False
-        for xpath in [
-            f"//ul[contains(@class,'suggestionsDropdown')]//li[contains(text(),'{skill}')]",
-            f"//div[contains(@class,'dropdown')]//li[normalize-space()='{skill}']",
-            f"//ul[contains(@class,'suggestions')]//li[contains(.,'{skill}')]",
+        # Try selecting from autocomplete dropdown
+        selected = False
+        for dropdown_xpath in [
+            f"//ul[contains(@class,'sugComp') or contains(@class,'suggestions') or contains(@class,'dropdown')]"
+            f"//li[contains(.,'{skill}')]",
+            f"//*[contains(@class,'Sbtn') or contains(@class,'suggestion-item') or contains(@class,'suggestItem')]"
+            f"[contains(.,'{skill}')]",
         ]:
-            opts = driver.find_elements(By.XPATH, xpath)
+            opts = driver.find_elements(By.XPATH, dropdown_xpath)
             if opts:
                 opts[0].click()
-                selected_from_dropdown = True
-                time.sleep(1)
+                selected = True
+                log.info(f"Selected '{skill}' from dropdown")
                 break
 
-        if not selected_from_dropdown:
+        if not selected:
+            # Press Enter to add as free-text if no dropdown showed
             skill_input.send_keys(Keys.RETURN)
-            time.sleep(1)
+            log.info(f"Added '{skill}' via Enter key")
 
-        # Click Save
-        for xpath in [
-            "//button[contains(text(),'Save')]",
-            "//button[contains(@class,'save')]",
-        ]:
-            btns = driver.find_elements(By.XPATH, xpath)
-            if btns:
-                btns[0].click()
-                time.sleep(3)
-                log.info(f"Skill added: {skill}")
-                return True
+        time.sleep(1)
 
-        log.warning("Save button not found after adding skill")
-        return False
+        # Click Save (class confirmed via debug)
+        time.sleep(1)
+        driver.execute_script("""
+            var btns = document.querySelectorAll('button.btn-dark-ot');
+            for (var b of btns) {
+                if (b.offsetParent !== null) { b.click(); break; }
+            }
+        """)
+        time.sleep(3)
+
+        log.info(f"Skills saved with new skill: {skill}")
+        return True
 
     except Exception as e:
         log.error(f"Skill update failed: {e}")
@@ -325,40 +279,37 @@ def main():
 
     setup_logging()
     log = logging.getLogger(__name__)
-    log.info("=" * 50)
+    log.info("=" * 55)
     log.info("Naukri Daily Profile Update — Starting")
     log.info(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    log.info("=" * 50)
+    log.info("=" * 55)
 
     if not EMAIL or not PASSWORD:
-        log.error("NAUKRI_EMAIL or NAUKRI_PASSWORD not set. Add them to .env file.")
+        log.error("NAUKRI_EMAIL or NAUKRI_PASSWORD not set in .env")
         sys.exit(1)
 
     state = load_state()
-
-    # Pick today's headline and skill
     h_idx = state.get("headline_index", 0) % len(HEADLINE_VARIANTS)
-    s_idx = state.get("skill_index", 0) % len(ALL_SKILLS)
-    today_headline = HEADLINE_VARIANTS[h_idx]
-    today_skill    = ALL_SKILLS[s_idx]
+    s_idx = state.get("skill_index", 0) % len(ROTATING_SKILLS)
 
-    log.info(f"Today's headline: {today_headline}")
-    log.info(f"Today's skill:    {today_skill}")
+    today_headline = HEADLINE_VARIANTS[h_idx]
+    today_skill    = ROTATING_SKILLS[s_idx]
+
+    log.info(f"Today's headline : {today_headline}")
+    log.info(f"Today's new skill: {today_skill}")
 
     driver = get_driver(headless=not args.visible)
     try:
-        logged_in = naukri_login(driver, EMAIL, PASSWORD)
-
-        if not logged_in:
-            log.error("Login failed — stopping.")
+        if not naukri_login(driver, EMAIL, PASSWORD):
+            log.error("Login failed — aborting.")
             return
 
         h_ok = update_headline(driver, today_headline)
         s_ok = add_key_skill(driver, today_skill)
 
-        # Advance rotation indexes for tomorrow
+        # Advance rotation for tomorrow
         state["headline_index"] = (h_idx + 1) % len(HEADLINE_VARIANTS)
-        state["skill_index"]    = (s_idx + 1) % len(ALL_SKILLS)
+        state["skill_index"]    = (s_idx + 1) % len(ROTATING_SKILLS)
         state["last_run"]           = datetime.now().isoformat()
         state["last_headline"]      = today_headline
         state["last_skill_added"]   = today_skill
@@ -373,6 +324,7 @@ def main():
     finally:
         driver.quit()
         log.info("Browser closed. Done.")
+        log.info("=" * 55)
 
 
 if __name__ == "__main__":
