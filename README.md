@@ -1,181 +1,190 @@
-# 🚀 AI Job Autopilot: Naukri + RAG + Ollama
+# Naukri Auto Apply AI
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" />
-  <img src="https://img.shields.io/badge/Flask-API-black?style=for-the-badge&logo=flask" />
-  <img src="https://img.shields.io/badge/Ollama-Local%20LLM-111827?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/RAG-Vector%20Search-10B981?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Selenium-Auto%20Apply-43B02A?style=for-the-badge&logo=selenium" />
-</p>
+Automation toolkit for Naukri job discovery, fit scoring, RAG-assisted Q&A, and guided auto-apply workflows.
 
-<p align="center">
-Automate job search, ranking, answer generation, and apply flows with a local AI stack.
-</p>
+## What this project does
 
----
+- Scrapes jobs from Naukri using Selenium (`NaukriLiveScraper`)
+- Scores jobs against your resume and skill profile
+- Stores jobs/applications in SQLite via SQLAlchemy
+- Indexes jobs into a local RAG store for semantic retrieval
+- Generates job-form answers using local Ollama models
+- Runs auto-apply in `dry_run` or real apply mode
+- Streams end-to-end auto-apply progress over SSE
+- Includes a daily Naukri profile updater (headline + rotating skill)
 
-## 🌈 What This Project Does
+## Tech stack
 
-- 🕷️ **Scrapes jobs from Naukri (live)**
-- 🧠 **Scores role fit** using resume + skills matching
-- 📚 **Builds local vector DB (RAG)** for better retrieval/context
-- 🤖 **Generates form answers** with Ollama (`llama3.2:3b`, DeepSeek, etc.)
-- ⚙️ **Runs full pipeline**: scrape → rank → index → apply
-- 🧪 **Dry-run mode** for safe testing before real apply
+- Python 3.10+
+- Flask, Flask-SQLAlchemy, Flask-CORS
+- Selenium (Chrome/Chromedriver)
+- Ollama (local LLM + embeddings)
+- APScheduler (optional scheduled jobs)
 
----
+## Project structure
 
-## 🧩 Tech Stack
+- `app.py` - main Flask app, dashboard routes, API orchestration
+- `naukri_auto_apply_pipeline.py` - SSE-friendly full auto-apply pipeline
+- `application_engine.py` - evaluation logic + application handling
+- `job_scraper.py` - live Naukri scraper + fallback/mock data utilities
+- `rag_service.py` - vector-like indexing/query layer for jobs
+- `naukri_profile_updater.py` - daily profile freshness automation
+- `models.py` - DB models (`CandidateProfile`, `JobListing`, `JobApplication`, etc.)
+- `templates/dashboard.html` + `static/` - dashboard UI
+- `scripts/naukri_profile_scrape.py` - extract profile data snapshot
+- `scripts/naukri_daily_apply.py` - daily apply flow from profile data
 
-- **Backend**: Flask + SQLAlchemy
-- **AI**: Ollama local models (`/api/chat`, `/api/embeddings`, CLI fallback)
-- **Automation**: Selenium (Chrome)
-- **RAG Store**: local SQL table `rag_documents`
-- **UI**: HTML/CSS/JS dashboard
+## Setup
 
----
+1. Create/activate virtual environment
 
-## ⚡ Quick Start
-
-### 1. Install dependencies
 ```bash
-python3 -m pip install -r requirements.txt
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 
-### 2. Configure env
+2. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+3. Configure environment
+
 ```bash
 cp .env.example .env
 ```
 
-Set required values in `.env`:
+Set at minimum:
+
 ```env
+NAUKRI_EMAIL=your_naukri_email
+NAUKRI_PASSWORD=your_naukri_password
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 OLLAMA_MODEL=llama3.2:3b
 OLLAMA_EMBED_MODEL=llama3.2:3b
-NAUKRI_EMAIL=your_email
-NAUKRI_PASSWORD=your_password
 ```
 
-### 3. Start Ollama
+4. Start Ollama
+
 ```bash
 ollama serve
-ollama list
+ollama pull llama3.2:3b
 ```
 
-### 4. Run app
+5. Run the app
+
 ```bash
-python3 app.py
+python app.py --port 5001
 ```
 
-Open: **http://127.0.0.1:5001**
+Open: `http://127.0.0.1:5001`
 
----
+## Quick API usage
 
-## 🔥 Full Pipeline (One API Call)
+### 1. Scrape + score + index (live Naukri)
+
+```bash
+curl -X POST http://127.0.0.1:5001/api/naukri/scrape-live \
+  -H "Content-Type: application/json" \
+  -d '{
+    "role": "Python Developer",
+    "location": "Hyderabad",
+    "limit": 20,
+    "headless": true
+  }'
+```
+
+### 2. Full pipeline run
 
 ```bash
 curl -X POST http://127.0.0.1:5001/api/pipeline/run \
   -H "Content-Type: application/json" \
   -d '{
-    "role":"Python Developer",
-    "location":"Hyderabad",
-    "limit":20,
-    "min_score":70,
-    "max_apply":5,
-    "dry_run":true,
-    "headless":true
+    "role": "Python Developer",
+    "location": "Hyderabad",
+    "limit": 20,
+    "min_score": 70,
+    "max_apply": 5,
+    "dry_run": true,
+    "headless": true
   }'
 ```
 
----
+### 3. RAG query
 
-## 🧭 UI Workflow
+```bash
+curl -X POST http://127.0.0.1:5001/api/rag/query \
+  -H "Content-Type: application/json" \
+  -d '{"query":"backend python jobs with aws and fastapi", "top_k": 5}'
+```
 
-Go to **Settings** section in dashboard:
+### 4. Auto-apply stream (SSE)
 
-1. **AI Copilot**
-- Set Ollama URL/model
-- Click `Test Ollama Connection`
-- Paste job questions (one per line)
-- Click `Generate Auto Answers`
+```bash
+curl -N http://127.0.0.1:5001/api/auto-apply/stream
+```
 
-2. **Live Naukri + RAG Pipeline**
-- Set role/location/min score
-- Use `Dry Run` toggle for safe mode
-- Click:
-  - `Scrape Naukri Live`
-  - `Test RAG Retrieval`
-  - `Run Full Pipeline`
+## Key endpoints
 
----
-
-## 🧪 Core API Endpoints
-
-### AI + Answers
-- `GET /api/ai/provider-status`
-- `GET/POST /api/ai/settings`
-- `POST /api/ai/answers`
-
-### Live Jobs + RAG
+- `GET /api/dashboard-stats`
+- `GET /api/applications`
+- `POST /api/search-jobs`
 - `POST /api/naukri/scrape-live`
-- `POST /api/rag/reindex`
-- `POST /api/rag/query`
-
-### Auto Apply
 - `POST /api/naukri/auto-apply`
 - `POST /api/pipeline/run`
+- `POST /api/rag/reindex`
+- `POST /api/rag/query`
+- `GET|POST /api/ai/settings`
+- `GET /api/ai/provider-status`
+- `POST /api/ai/answers`
+- `GET /api/auto-apply/stream`
+- `GET /api/auto-apply/status`
 
-### Existing Dashboard APIs
-- `GET /api/dashboard-stats`
-- `POST /api/search-jobs`
-- `POST /api/apply-jobs`
-- `GET /api/applications`
+## Automation scripts
 
----
+### Daily profile update
 
-## 📁 Key Files
-
-- `app.py` - main API routes + orchestration
-- `rag_service.py` - local vector index and retrieval
-- `job_scraper.py` - live Naukri scraper + mock fallback
-- `application_engine.py` - apply engine + Selenium auto-apply agent
-- `models.py` - SQLAlchemy models (`RagDocument`, `JobListing`, etc.)
-- `templates/dashboard.html` - UI
-- `static/js/dashboard.js` - UI actions and API wiring
-
----
-
-## ⚠️ Important Notes
-
-- Naukri may show anti-bot/CAPTCHA challenges.
-- This project does **not** bypass CAPTCHA.
-- Use `dry_run=true` first, then switch to real apply.
-- Respect job portal terms and local laws.
-
----
-
-## 🛠️ Troubleshooting
-
-### Ollama not detected
 ```bash
-ollama serve
-ollama list
+python naukri_profile_updater.py --visible
+# for scheduled/headless runs
+python naukri_profile_updater.py
+```
+
+### Profile scrape + daily apply (scripts/)
+
+```bash
+python scripts/naukri_profile_scrape.py
+python scripts/naukri_daily_apply.py
+```
+
+## Notes and limitations
+
+- Naukri UI/CSS changes can break Selenium selectors.
+- CAPTCHA/OTP/manual verification is not bypassed.
+- Always test with `dry_run=true` before real apply mode.
+- Respect Naukri terms of service and local laws.
+
+## Troubleshooting
+
+- Ollama check:
+
+```bash
 curl http://127.0.0.1:11434/api/tags
 ```
 
-### Port busy
+- If app port is busy:
+
 ```bash
-python3 app.py --port 5002
+python app.py --port 5002
 ```
 
-### Rebuild DB quickly
+- Recreate DB tables:
+
 ```bash
-python3 -c "from app import create_app; from models import db; app = create_app(); app.app_context().push(); db.create_all()"
+python -c "from app import create_app; from models import db; a=create_app(); a.app_context().push(); db.create_all()"
 ```
 
----
+## Disclaimer
 
-## 📜 Disclaimer
-
-This tool is for educational/personal automation use. Always comply with platform policy and applicable law.
-# CareerCopilot-AI
+For educational/personal automation use. You are responsible for compliant usage of this project.
