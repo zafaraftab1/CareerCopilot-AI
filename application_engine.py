@@ -419,6 +419,13 @@ class NaukriAutoApplyAgent:
         options.add_argument("--window-size=1600,1000")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option("useAutomationExtension", False)
+        options.add_argument(
+            "--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        )
         return webdriver.Chrome(options=options)
 
     def login(self, driver, email=None, password=None):
@@ -434,9 +441,58 @@ class NaukriAutoApplyAgent:
 
         driver.get("https://www.naukri.com/nlogin/login")
         wait = WebDriverWait(driver, 20)
-        wait.until(EC.presence_of_element_located((By.ID, "usernameField"))).send_keys(email)
-        driver.find_element(By.ID, "passwordField").send_keys(password)
-        driver.find_element(By.XPATH, "//button[contains(@type,'submit')]").click()
+
+        username_elem = None
+        password_elem = None
+        username_selectors = [
+            (By.ID, "usernameField"),
+            (By.CSS_SELECTOR, "input[type='email']"),
+            (By.CSS_SELECTOR, "input[placeholder*='Email'], input[placeholder*='email']"),
+            (By.CSS_SELECTOR, "input[name='email']"),
+        ]
+        password_selectors = [
+            (By.ID, "passwordField"),
+            (By.CSS_SELECTOR, "input[type='password']"),
+            (By.CSS_SELECTOR, "input[name='password']"),
+        ]
+
+        for by, sel in username_selectors:
+            elems = driver.find_elements(by, sel)
+            if elems:
+                username_elem = elems[0]
+                break
+        for by, sel in password_selectors:
+            elems = driver.find_elements(by, sel)
+            if elems:
+                password_elem = elems[0]
+                break
+
+        if not username_elem or not password_elem:
+            # If the login form isn't visible, try proceeding to homepage in case of preserved session.
+            driver.get("https://www.naukri.com/mnjuser/homepage")
+            time.sleep(3)
+            if "mnjuser" in driver.current_url:
+                return {"mode": "session", "ok": True, "message": "Existing session detected"}
+            return {"mode": "credentials", "ok": False, "message": "Login form not found"}
+
+        try:
+            username_elem.clear()
+        except Exception:
+            pass
+        username_elem.send_keys(email)
+
+        try:
+            password_elem.clear()
+        except Exception:
+            pass
+        password_elem.send_keys(password)
+
+        submit_buttons = driver.find_elements(By.XPATH, "//button[contains(@type,'submit')]")
+        if submit_buttons:
+            submit_buttons[0].click()
+        else:
+            password_elem.submit()
+
         time.sleep(4)
         return {"mode": "credentials", "ok": True, "message": "Login attempted"}
 
