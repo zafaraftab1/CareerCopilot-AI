@@ -1,0 +1,24 @@
+{
+  "scraped": 36,
+  "matched": 26,
+  "applied": 2,
+  "applied_jobs": [
+    {
+      "job_title": "Python Developer",
+      "company": "Srs Business Solutions India",
+      "location": "Hyderabad",
+      "match_score": 100,
+      "status": "applied (dry run)",
+      "job_url": "https://www.naukri.com/job-listings-python-developer-srs-business-solutions-india-hyderabad-5-to-8-years-250226037636"
+    },
+    {
+      "job_title": "Python Developer",
+      "company": "Domis Tech",
+      "location": "Noida",
+      "match_score": 93,
+      "status": "applied (dry run)",
+      "job_url": "https://www.naukri.com/job-listings-python-developer-domis-tech-noida-2-to-5-years-110226019406"
+    }
+  ],
+  "timestamp": "2026-02-25T22:54:49.853217"
+}
