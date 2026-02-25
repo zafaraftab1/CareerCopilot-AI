@@ -1,7 +1,7 @@
 """
 Flask API for Job Application Automation
 """
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, Response, stream_with_context
 from flask_cors import CORS
 from datetime import datetime, date
 import os
@@ -896,6 +896,72 @@ def create_app(config_name='development'):
             })
 
         return jsonify(distribution)
+
+    @app.route('/api/auto-apply/stream')
+    def auto_apply_stream():
+        """
+        Stream auto-apply pipeline progress via Server-Sent Events (SSE).
+        Query params: dry_run, headless, daily_limit, match_threshold
+        """
+        import threading
+        import queue as _queue
+        import json as _json
+        from naukri_auto_apply_pipeline import NaukriAutoApplyPipeline
+
+        dry_run         = request.args.get('dry_run', 'false').lower() == 'true'
+        headless        = request.args.get('headless', 'true').lower() == 'true'
+        daily_limit     = int(request.args.get('daily_limit', 30))
+        match_threshold = int(request.args.get('match_threshold', 70))
+
+        event_queue = _queue.Queue()
+
+        def run_pipeline():
+            def emit(event_dict):
+                event_queue.put(event_dict)
+            try:
+                pipeline = NaukriAutoApplyPipeline(
+                    daily_limit=daily_limit,
+                    match_threshold=match_threshold,
+                    headless=headless,
+                    dry_run=dry_run,
+                )
+                pipeline.run(app, emit)
+            except Exception as exc:
+                event_queue.put({'type': 'error', 'message': str(exc)})
+            finally:
+                event_queue.put(None)   # sentinel → close stream
+
+        threading.Thread(target=run_pipeline, daemon=True).start()
+
+        def generate():
+            while True:
+                try:
+                    event = event_queue.get(timeout=300)   # 5-min safety timeout
+                    if event is None:
+                        yield 'data: {"type":"done"}\n\n'
+                        break
+                    yield f'data: {_json.dumps(event)}\n\n'
+                except _queue.Empty:
+                    yield 'data: {"type":"heartbeat"}\n\n'
+
+        return Response(
+            stream_with_context(generate()),
+            content_type='text/event-stream',
+            headers={
+                'Cache-Control':    'no-cache',
+                'X-Accel-Buffering': 'no',
+                'Connection':       'keep-alive',
+            },
+        )
+
+    @app.route('/api/auto-apply/status')
+    def auto_apply_status():
+        """Return the status of the last pipeline run."""
+        from naukri_auto_apply_pipeline import STATUS_FILE
+        if STATUS_FILE.exists():
+            import json as _json
+            return jsonify(_json.loads(STATUS_FILE.read_text()))
+        return jsonify({'status': 'never_run'})
 
     return app
 

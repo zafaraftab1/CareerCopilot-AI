@@ -24,6 +24,10 @@
                     <i class="fas fa-chart-line"></i>
                     <span>Dashboard</span>
                 </a>
+                <a href="#auto-apply" class="nav-item" data-section="auto-apply">
+                    <i class="fas fa-robot"></i>
+                    <span>Auto Apply</span>
+                </a>
                 <a href="#jobs" class="nav-item" data-section="jobs">
                     <i class="fas fa-briefcase"></i>
                     <span>Job Search</span>
@@ -188,6 +192,116 @@
                             </table>
                         </div>
                     </div>
+                </section>
+
+                <!-- Auto Apply Section -->
+                <section id="auto-apply-section" class="content-section">
+
+                    <!-- Run Controls Card -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-robot"></i> Naukri Auto Apply</h3>
+                            <span id="auto-apply-status-badge" class="status-badge applied" style="display:none;">Ready</span>
+                        </div>
+                        <p style="color:#666;margin-bottom:20px;">
+                            Automatically searches Naukri for jobs matching your resume and applies to the best matches.
+                            Runs daily at <strong>7:05 AM</strong> or click <em>Run Now</em> anytime.
+                        </p>
+
+                        <div class="search-filters" style="flex-wrap:wrap;gap:16px;">
+                            <div class="filter-group">
+                                <label>Min Match Score (%)</label>
+                                <input type="number" id="aa-threshold" value="70" min="50" max="100" style="width:90px;">
+                            </div>
+                            <div class="filter-group">
+                                <label>Max Jobs / Run</label>
+                                <input type="number" id="aa-limit" value="30" min="1" max="50" style="width:90px;">
+                            </div>
+                            <div class="filter-group" style="justify-content:flex-end;align-items:flex-end;flex:1;">
+                                <label>
+                                    <input type="checkbox" id="aa-dry-run">
+                                    Dry Run (no real submit)
+                                </label>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+                            <button class="btn btn-success btn-large" id="run-auto-apply-btn">
+                                <i class="fas fa-play"></i> Run Now
+                            </button>
+                            <button class="btn btn-secondary" id="stop-auto-apply-btn" style="display:none;">
+                                <i class="fas fa-stop"></i> Stop
+                            </button>
+                            <span id="aa-last-run" style="color:#999;font-size:13px;"></span>
+                        </div>
+                    </div>
+
+                    <!-- Progress Card -->
+                    <div class="card" id="aa-progress-card" style="display:none;">
+                        <div class="card-header">
+                            <h3><i class="fas fa-spinner fa-spin" id="aa-spinner"></i> Pipeline Progress</h3>
+                        </div>
+
+                        <!-- Progress bar -->
+                        <div class="aa-progress-bar-wrap">
+                            <div class="aa-progress-bar-fill" id="aa-progress-fill" style="width:0%"></div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:13px;color:#666;">
+                            <span id="aa-progress-msg">Starting...</span>
+                            <span id="aa-progress-pct">0%</span>
+                        </div>
+
+                        <!-- Stats row -->
+                        <div class="aa-stats-row" style="margin-top:20px;">
+                            <div class="aa-stat">
+                                <div class="aa-stat-val" id="aa-stat-scraped">0</div>
+                                <div class="aa-stat-lbl">Scraped</div>
+                            </div>
+                            <div class="aa-stat">
+                                <div class="aa-stat-val" id="aa-stat-matched">0</div>
+                                <div class="aa-stat-lbl">Matched</div>
+                            </div>
+                            <div class="aa-stat">
+                                <div class="aa-stat-val" id="aa-stat-applied">0</div>
+                                <div class="aa-stat-lbl">Applied</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Two-column: log + applied table -->
+                    <div class="charts-grid" id="aa-results-area" style="display:none;">
+
+                        <!-- Live Log -->
+                        <div class="chart-card">
+                            <h3><i class="fas fa-terminal"></i> Live Log</h3>
+                            <div class="aa-live-log" id="aa-live-log"></div>
+                        </div>
+
+                        <!-- Applied Jobs table (real-time) -->
+                        <div class="chart-card">
+                            <h3><i class="fas fa-check-double"></i> Applied Jobs <span id="aa-applied-count" style="font-size:13px;font-weight:normal;color:#667eea;">(0)</span></h3>
+                            <div class="table-container" style="max-height:320px;overflow-y:auto;">
+                                <table class="applications-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Job Title</th>
+                                            <th>Company</th>
+                                            <th>Match</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="aa-applied-jobs-tbody">
+                                        <tr id="aa-no-jobs-row">
+                                            <td colspan="4" style="text-align:center;color:#999;padding:20px;">
+                                                Waiting for pipeline to start...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
                 </section>
 
                 <!-- Job Search Section -->

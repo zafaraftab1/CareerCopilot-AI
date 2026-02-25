@@ -1183,3 +1183,75 @@ body {
         display: none;
     }
 }
+
+/* =================================================================
+   Auto Apply Section
+   ================================================================= */
+
+/* Progress bar */
+.aa-progress-bar-wrap {
+    background: #eef0f5;
+    border-radius: 8px;
+    height: 14px;
+    overflow: hidden;
+    margin-top: 12px;
+}
+
+.aa-progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 8px;
+    transition: width 0.4s ease;
+}
+
+/* Stats row */
+.aa-stats-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.aa-stat {
+    background: #f8f9fc;
+    border-radius: 10px;
+    padding: 14px 28px;
+    text-align: center;
+    border-left: 4px solid #667eea;
+    min-width: 90px;
+}
+
+.aa-stat-val {
+    font-size: 26px;
+    font-weight: 700;
+    color: #667eea;
+}
+
+.aa-stat-lbl {
+    font-size: 12px;
+    color: #999;
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Live log */
+.aa-live-log {
+    background: #1a1a2e;
+    border-radius: 8px;
+    padding: 14px 16px;
+    height: 280px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 12.5px;
+}
+
+.aa-log-line {
+    padding: 2px 0;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+/* Scrollbar for log */
+.aa-live-log::-webkit-scrollbar { width: 6px; }
+.aa-live-log::-webkit-scrollbar-track { background: #111; }
+.aa-live-log::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }

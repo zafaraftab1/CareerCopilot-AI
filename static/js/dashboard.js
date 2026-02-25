@@ -94,6 +94,236 @@ function initializeEventListeners() {
     document.getElementById('scrape-naukri-btn')?.addEventListener('click', scrapeNaukriLive);
     document.getElementById('query-rag-btn')?.addEventListener('click', testRagQuery);
     document.getElementById('run-full-pipeline-btn')?.addEventListener('click', runFullPipeline);
+
+    // Auto Apply section
+    document.getElementById('run-auto-apply-btn')?.addEventListener('click', runAutoApplyPipeline);
+    document.getElementById('stop-auto-apply-btn')?.addEventListener('click', stopAutoApplyPipeline);
+}
+
+// ===========================
+// Auto Apply Pipeline
+// ===========================
+
+// Module-level state for auto-apply
+const autoApplyState = {
+    eventSource: null,
+    appliedCount: 0,
+    scrapedCount: 0,
+    matchedCount: 0,
+    running: false
+};
+
+async function loadLastAutoApplyStatus() {
+    try {
+        const res  = await fetch('/api/auto-apply/status');
+        const data = await res.json();
+        if (data.timestamp) {
+            const ts = new Date(data.timestamp).toLocaleString();
+            const el = document.getElementById('aa-last-run');
+            if (el) el.textContent =
+                `Last run: ${ts}  |  Applied: ${data.applied || 0}  Matched: ${data.matched || 0}  Scraped: ${data.scraped || 0}`;
+        }
+    } catch (_) {}
+}
+
+function runAutoApplyPipeline() {
+    if (autoApplyState.running) return;
+
+    const threshold  = document.getElementById('aa-threshold')?.value  || 70;
+    const limit      = document.getElementById('aa-limit')?.value       || 30;
+    const dryRun     = document.getElementById('aa-dry-run')?.checked   || false;
+
+    // Reset UI
+    autoApplyState.appliedCount = 0;
+    autoApplyState.scrapedCount = 0;
+    autoApplyState.matchedCount = 0;
+    autoApplyState.running      = true;
+
+    document.getElementById('run-auto-apply-btn').disabled = true;
+    document.getElementById('run-auto-apply-btn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+    document.getElementById('stop-auto-apply-btn').style.display = 'inline-flex';
+
+    const progressCard  = document.getElementById('aa-progress-card');
+    const resultsArea   = document.getElementById('aa-results-area');
+    const liveLog       = document.getElementById('aa-live-log');
+    const tbody         = document.getElementById('aa-applied-jobs-tbody');
+    const spinner       = document.getElementById('aa-spinner');
+
+    if (progressCard) progressCard.style.display = '';
+    if (resultsArea)  resultsArea.style.display  = '';
+    if (liveLog)      liveLog.innerHTML = '';
+    if (tbody)        tbody.innerHTML   =
+        '<tr id="aa-no-jobs-row"><td colspan="4" style="text-align:center;color:#999;padding:20px;">Waiting for first application...</td></tr>';
+
+    _aaSetProgress(0, 'Starting pipeline...');
+    _aaUpdateStats(0, 0, 0);
+
+    const url = `/api/auto-apply/stream?dry_run=${dryRun}&daily_limit=${limit}&match_threshold=${threshold}&headless=true`;
+    autoApplyState.eventSource = new EventSource(url);
+
+    autoApplyState.eventSource.onmessage = (e) => {
+        let event;
+        try { event = JSON.parse(e.data); } catch { return; }
+
+        switch (event.type) {
+            case 'progress':
+                _aaSetProgress(event.percent || 0, event.message || '');
+                if (event.matched_count != null)
+                    autoApplyState.matchedCount = event.matched_count;
+                _aaUpdateStats(autoApplyState.scrapedCount,
+                               autoApplyState.matchedCount,
+                               autoApplyState.appliedCount);
+                _aaLog('info', event.message);
+                break;
+
+            case 'log':
+                _aaLog('info', event.message);
+                break;
+
+            case 'scrape_result':
+                autoApplyState.scrapedCount += (event.count || 0);
+                _aaUpdateStats(autoApplyState.scrapedCount,
+                               autoApplyState.matchedCount,
+                               autoApplyState.appliedCount);
+                _aaLog('info', event.message || `Found ${event.count} jobs`);
+                break;
+
+            case 'job_applied':
+                autoApplyState.appliedCount++;
+                _aaUpdateStats(autoApplyState.scrapedCount,
+                               autoApplyState.matchedCount,
+                               autoApplyState.appliedCount);
+                _aaAddAppliedJobRow(event.data);
+                _aaLog('success', `Applied: ${event.data.job_title} @ ${event.data.company}`);
+                break;
+
+            case 'job_skipped':
+                _aaLog('warn', `Skipped: ${event.data.job_title} (${event.data.reason})`);
+                break;
+
+            case 'warning':
+                _aaLog('warn', event.message);
+                break;
+
+            case 'error':
+                _aaLog('error', event.message);
+                _aaFinish(false, event.message);
+                break;
+
+            case 'complete':
+            case 'done':
+                const s = event.summary || {};
+                _aaSetProgress(100, `Done! Applied to ${s.applied || 0} jobs`);
+                _aaUpdateStats(s.scraped || 0, s.matched || 0, s.applied || 0);
+                _aaFinish(true, `Applied to ${s.applied || 0} jobs | Matched ${s.matched || 0} | Scraped ${s.scraped || 0}`);
+                loadDashboardData();
+                loadApplications();
+                break;
+
+            case 'heartbeat':
+                // keep-alive — no action
+                break;
+        }
+    };
+
+    autoApplyState.eventSource.onerror = () => {
+        if (autoApplyState.running) {
+            _aaLog('error', 'Connection lost or pipeline error');
+            _aaFinish(false, 'Pipeline connection error');
+        }
+    };
+}
+
+function stopAutoApplyPipeline() {
+    if (autoApplyState.eventSource) {
+        autoApplyState.eventSource.close();
+        autoApplyState.eventSource = null;
+    }
+    _aaFinish(false, 'Stopped by user');
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function _aaSetProgress(pct, msg) {
+    const fill = document.getElementById('aa-progress-fill');
+    const msgEl = document.getElementById('aa-progress-msg');
+    const pctEl = document.getElementById('aa-progress-pct');
+    if (fill)  fill.style.width  = pct + '%';
+    if (msgEl) msgEl.textContent = msg || '';
+    if (pctEl) pctEl.textContent = Math.round(pct) + '%';
+}
+
+function _aaUpdateStats(scraped, matched, applied) {
+    const s = document.getElementById('aa-stat-scraped');
+    const m = document.getElementById('aa-stat-matched');
+    const a = document.getElementById('aa-stat-applied');
+    if (s) s.textContent = scraped;
+    if (m) m.textContent = matched;
+    if (a) a.textContent = applied;
+}
+
+function _aaLog(level, msg) {
+    if (!msg) return;
+    const log = document.getElementById('aa-live-log');
+    if (!log) return;
+    const icons = { info: '→', success: '✓', warn: '⚠', error: '✗' };
+    const colors = { info: '#555', success: '#27ae60', warn: '#e67e22', error: '#e74c3c' };
+    const line = document.createElement('div');
+    line.className = 'aa-log-line';
+    line.style.color = colors[level] || '#555';
+    line.textContent = `${icons[level] || '·'} ${msg}`;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+}
+
+function _aaAddAppliedJobRow(job) {
+    const tbody = document.getElementById('aa-applied-jobs-tbody');
+    if (!tbody) return;
+
+    // Remove "waiting" placeholder
+    const placeholder = document.getElementById('aa-no-jobs-row');
+    if (placeholder) placeholder.remove();
+
+    const score = Number(job.match_score || 0).toFixed(0);
+    let cls = score >= 85 ? 'high' : score >= 70 ? 'medium' : 'low';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><strong>${job.job_title}</strong></td>
+        <td>${job.company}</td>
+        <td><span class="match-score-badge ${cls}">${score}%</span></td>
+        <td>
+            <span class="status-badge applied">
+                ${job.status === 'applied' ? '✓ Applied' : job.status}
+            </span>
+        </td>
+    `;
+    tbody.prepend(tr);   // newest first
+
+    const countEl = document.getElementById('aa-applied-count');
+    if (countEl) countEl.textContent = `(${autoApplyState.appliedCount})`;
+}
+
+function _aaFinish(success, message) {
+    autoApplyState.running = false;
+    if (autoApplyState.eventSource) {
+        autoApplyState.eventSource.close();
+        autoApplyState.eventSource = null;
+    }
+
+    const runBtn  = document.getElementById('run-auto-apply-btn');
+    const stopBtn = document.getElementById('stop-auto-apply-btn');
+    const spinner = document.getElementById('aa-spinner');
+
+    if (runBtn) {
+        runBtn.disabled = false;
+        runBtn.innerHTML = '<i class="fas fa-play"></i> Run Now';
+    }
+    if (stopBtn) stopBtn.style.display = 'none';
+    if (spinner) { spinner.classList.remove('fa-spin'); spinner.classList.remove('fa-spinner'); spinner.classList.add('fa-check-circle'); }
+
+    showToast(message, success ? 'success' : 'error');
+    loadLastAutoApplyStatus();
 }
 
 // ===========================
@@ -122,11 +352,12 @@ function switchSection(section) {
 
     // Update title
     const titles = {
-        'dashboard': 'Dashboard',
-        'jobs': 'Job Search',
+        'dashboard':    'Dashboard',
+        'auto-apply':   'Auto Apply',
+        'jobs':         'Job Search',
         'applications': 'Applications',
-        'resume': 'Resume & Profile',
-        'settings': 'Settings'
+        'resume':       'Resume & Profile',
+        'settings':     'Settings'
     };
     document.getElementById('section-title').textContent = titles[section] || 'Dashboard';
 
@@ -135,6 +366,9 @@ function switchSection(section) {
     // Load section-specific data
     if (section === 'applications') {
         loadApplications();
+    }
+    if (section === 'auto-apply') {
+        loadLastAutoApplyStatus();
     }
 }
 

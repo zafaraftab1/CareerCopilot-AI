@@ -16,7 +16,7 @@ class Config:
     SENDER_PASSWORD = os.getenv('SENDER_PASSWORD', '')
 
     # Application limits
-    DAILY_APPLICATION_LIMIT = 20
+    DAILY_APPLICATION_LIMIT = 30
     MATCH_SCORE_THRESHOLD = 70
 
     # Candidate information
