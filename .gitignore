@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+instance/
+logs/
+.profile_update_state.json
