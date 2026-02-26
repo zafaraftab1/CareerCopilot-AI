@@ -1,24 +1,232 @@
 {
-  "scraped": 36,
-  "matched": 26,
-  "applied": 2,
+  "scraped": 43,
+  "matched": 30,
+  "applied": 28,
   "applied_jobs": [
     {
-      "job_title": "Python Developer",
-      "company": "Srs Business Solutions India",
-      "location": "Hyderabad",
+      "job_title": "Full Stack Developer (React.js / Python)",
+      "company": "ZS",
+      "location": "Hybrid - Noida, New Delhi, Gurugram",
       "match_score": 100,
-      "status": "applied (dry run)",
-      "job_url": "https://www.naukri.com/job-listings-python-developer-srs-business-solutions-india-hyderabad-5-to-8-years-250226037636"
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-full-stack-developer-react-js-python-zs-noida-new-delhi-gurugram-3-to-7-years-131025011782"
+    },
+    {
+      "job_title": "python developer",
+      "company": "Tata Consultancy Services",
+      "location": "Hyderabad, Bengaluru",
+      "match_score": 97,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-python-developer-tata-consultancy-services-hyderabad-bengaluru-4-to-8-years-240226043056"
     },
     {
       "job_title": "Python Developer",
-      "company": "Domis Tech",
+      "company": "Tata Consultancy Services",
+      "location": "Hyderabad, Chennai, Bengaluru",
+      "match_score": 94,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-python-developer-tata-consultancy-services-hyderabad-chennai-bengaluru-4-to-9-years-240226008686"
+    },
+    {
+      "job_title": "Openings For Python Developer || Interviews on 21st Saturday ,26",
+      "company": "HCLTech",
       "location": "Noida",
-      "match_score": 93,
-      "status": "applied (dry run)",
-      "job_url": "https://www.naukri.com/job-listings-python-developer-domis-tech-noida-2-to-5-years-110226019406"
+      "match_score": 91,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-openings-for-python-developer-interviews-on-21st-saturday-26-hcl-software-noida-3-to-8-years-160226012367"
+    },
+    {
+      "job_title": "Python Software Developer - DN - ENG",
+      "company": "Infosys",
+      "location": "Hybrid - Hyderabad, Chennai, Bengaluru",
+      "match_score": 88,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-python-software-developer-dn-eng-infosys-hyderabad-chennai-bengaluru-6-to-10-years-120226034448"
+    },
+    {
+      "job_title": "Python Software Developer",
+      "company": "Redberyl Tech Solutions",
+      "location": "Hyderabad, Pune, Bengaluru",
+      "match_score": 88,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-python-software-developer-redberyl-tech-solutions-hyderabad-pune-bengaluru-5-to-10-years-260226009459"
+    },
+    {
+      "job_title": "Software Engineer - Python",
+      "company": "Paytm",
+      "location": "Noida",
+      "match_score": 87,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-software-engineer-python-one97-communications-limited-noida-1-to-3-years-110226923137"
+    },
+    {
+      "job_title": "Backend Developer",
+      "company": "Zippee",
+      "location": "Gurugram(Udyog Vihar Phase 2)",
+      "match_score": 84,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-backend-developer-zippee-gurugram-3-to-8-years-200226027526"
+    },
+    {
+      "job_title": "Python Developer",
+      "company": "Tata Consultancy Services",
+      "location": "Hyderabad, Pune, Bengaluru",
+      "match_score": 83,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-python-developer-tata-consultancy-services-hyderabad-pune-bengaluru-6-to-8-years-240226050935"
+    },
+    {
+      "job_title": "Generative AI Engineer",
+      "company": "EY",
+      "location": "Hybrid - Hyderabad",
+      "match_score": 83,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-generative-ai-engineer-ey-hyderabad-4-to-9-years-200226010176"
+    },
+    {
+      "job_title": "Python Developer ( Fresher / Intern )",
+      "company": "Dwaraka Head Quarters",
+      "location": "Hyderabad",
+      "match_score": 80,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-python-developer-fresher-intern-dwaraka-starline-hyderabad-0-to-1-years-220226003903"
+    },
+    {
+      "job_title": "Agentic AI / Generative AI Engineer",
+      "company": "Suzva Software Technologies",
+      "location": "Hyderabad, Chennai",
+      "match_score": 79,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-agentic-ai-generative-ai-engineer-suzva-software-technology-hyderabad-chennai-6-to-11-years-200226931550"
+    },
+    {
+      "job_title": "Python Developer",
+      "company": "Arshil Llc",
+      "location": "Hyderabad",
+      "match_score": 77,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-python-developer-arshil-hyderabad-1-to-5-years-240226933537"
+    },
+    {
+      "job_title": "Junior AI Engineer",
+      "company": "Feuji Software Solutions",
+      "location": "Hyderabad",
+      "match_score": 77,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-junior-ai-engineer-feuji-software-solutions-hyderabad-1-to-3-years-240226029246"
+    },
+    {
+      "job_title": "Machine Learning Engineer",
+      "company": "Turing",
+      "location": "Remote",
+      "match_score": 77,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-machine-learning-engineer-crossing-hurdles-gurugram-5-to-10-years-250226934625"
+    },
+    {
+      "job_title": "Backend Developer",
+      "company": "Doors Studio",
+      "location": "Gurugram",
+      "match_score": 77,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-backend-developer-doors-studio-gurugram-2-to-4-years-200126503472"
+    },
+    {
+      "job_title": "Python expert - Managerial level - GEN AI TEAM",
+      "company": "Genpact",
+      "location": "Noida, Gurugram, Bengaluru",
+      "match_score": 75,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-python-expert-managerial-level-gen-ai-team-genpact-noida-gurugram-bengaluru-9-to-14-years-030226020092"
+    },
+    {
+      "job_title": "Back-End Developer",
+      "company": "Saarthee",
+      "location": "Gurugram",
+      "match_score": 75,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-back-end-developer-saarthee-gurugram-4-to-8-years-270126502033"
+    },
+    {
+      "job_title": "Backend Developer (Remote)",
+      "company": "Crossing Hurdles",
+      "location": "Remote",
+      "match_score": 74,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-backend-developer-remote-crossing-hurdles-gurugram-5-to-10-years-250226934427"
+    },
+    {
+      "job_title": "Generative AI/LLM Engineer",
+      "company": "Soothsayer Analytics",
+      "location": "Hyderabad",
+      "match_score": 74,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-generative-ai-llm-engineer-soothsayer-analytics-hyderabad-1-to-4-years-300725504732"
+    },
+    {
+      "job_title": "Hiring AIML & GEN AI Engineer",
+      "company": "Motivity Labs",
+      "location": "Hyderabad",
+      "match_score": 72,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-hiring-aiml-gen-ai-engineer-motivity-labs-hyderabad-3-to-8-years-090525009368"
+    },
+    {
+      "job_title": "AI Engineer",
+      "company": "Vipany Management Consulting",
+      "location": "Hybrid - Hyderabad, Chennai",
+      "match_score": 72,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-ai-engineer-vipany-global-solutions-hyderabad-chennai-4-to-8-years-260226017385"
+    },
+    {
+      "job_title": "GenAI & Python Developer",
+      "company": "EXL",
+      "location": "Noida",
+      "match_score": 71,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-genai-python-developer-exl-services-com-i-pvt-ltd-noida-2-to-7-years-170226501444"
+    },
+    {
+      "job_title": "Machine Learning Engineer (Remote)",
+      "company": "Crossing Hurdles",
+      "location": "Remote",
+      "match_score": 71,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-machine-learning-engineer-remote-crossing-hurdles-gurugram-1-to-6-years-250226934366"
+    },
+    {
+      "job_title": "Back End Developer",
+      "company": "Rupyz Fintech",
+      "location": "Hybrid - Gurugram(Sector 48)",
+      "match_score": 71,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-back-end-developer-rupyz-fintech-gurugram-3-to-5-years-270126009561"
+    },
+    {
+      "job_title": "Python Developer ( Also Open For Mumbai / Indore)",
+      "company": "Tata Consultancy Services",
+      "location": "Hyderabad, Chennai, Bengaluru",
+      "match_score": 70,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-python-developer-also-open-for-mumbai-indore-tata-consultancy-services-hyderabad-chennai-bengaluru-4-to-9-years-230226012340"
+    },
+    {
+      "job_title": "Back End Developer",
+      "company": "Anarock Property Consultants",
+      "location": "Mumbai(Bandra Kurla Complex), Gurugram(Cyber City)",
+      "match_score": 70,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-back-end-developer-anarock-property-consultants-mumbai-gurugram-2-to-4-years-190226038160"
+    },
+    {
+      "job_title": "Generative AI Engineer",
+      "company": "Naukri Expert Assist",
+      "location": "Hyderabad, Chennai",
+      "match_score": 70,
+      "status": "applied",
+      "job_url": "https://www.naukri.com/job-listings-generative-ai-engineer-naukri-expert-assist-hyderabad-chennai-3-to-5-years-180226038130"
     }
   ],
-  "timestamp": "2026-02-25T22:54:49.853217"
+  "timestamp": "2026-02-26T16:32:01.866436"
 }
