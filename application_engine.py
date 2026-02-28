@@ -792,19 +792,70 @@ class NaukriAutoApplyAgent:
         except Exception as exc:
             log.warning(f"_fill_radio_groups error: {exc}")
 
+    def _detect_popup_quick(self, driver):
+        """Re-detect popup without initial sleep (for refresh inside the chatbot loop)."""
+        for selector in [
+            "div[class*='chatbot']", "div[class*='bot-container']",
+            "div[class*='botBox']", "div[role='dialog']",
+            "div[class*='applyPopup']", "div[class*='apply-popup']",
+            "div[class*='modal']", "div[class*='popup']",
+        ]:
+            try:
+                elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                for el in elements:
+                    if el.is_displayed() and el.size.get("height", 0) > 50:
+                        return el
+            except Exception:
+                continue
+        return None
+
+    def _click_next_button(self, driver, popup, log) -> bool:
+        """Click Next/Send/Ok to advance to the next chatbot question (not the final submit)."""
+        FINAL_WORDS = {"submit", "apply", "done", "finish", "send application"}
+        next_xpaths = [
+            ".//button[contains(@class, 'bot-btn')]",
+            ".//button[contains(@class, 'send-btn')]",
+            ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'next')]",
+            ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'send')]",
+            ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continue')]",
+            ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'ok')]",
+            ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'confirm')]",
+        ]
+        for xp in next_xpaths:
+            try:
+                buttons = popup.find_elements(By.XPATH, xp)
+                for btn in buttons:
+                    if not btn.is_displayed() or not btn.is_enabled():
+                        continue
+                    btn_text = btn.text.strip().lower()
+                    if any(w in btn_text for w in FINAL_WORDS):
+                        continue  # don't treat final-action buttons as Next
+                    driver.execute_script("arguments[0].scrollIntoView({block:'center'});", btn)
+                    self._highlight(driver, btn, color="#e2d9f3", border="2px solid #6f42c1")
+                    time.sleep(0.3)
+                    try:
+                        btn.click()
+                    except Exception:
+                        driver.execute_script("arguments[0].click();", btn)
+                    log.info(f"Next/Send button clicked: '{btn.text.strip()}'")
+                    return True
+            except Exception:
+                continue
+        return False
+
     def _click_submit_button(self, driver, popup, log) -> bool:
-        """Attempt to click the submit/apply button inside popup then full page."""
+        """Attempt to click the final Submit/Apply button inside popup then full page."""
         submit_xpaths = [
             ".//button[@type='submit']",
             ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'submit')]",
-            ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'apply')]",
-            ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'done')]",
-            ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continue')]",
             ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'send application')]",
-            ".//button[contains(@class, 'btn-primary')]",
+            ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'done')]",
+            ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'apply')]",
             ".//button[contains(@class, 'sendMail')]",
-            ".//button[contains(@class, 'bot-btn')]",
+            ".//button[contains(@class, 'btn-primary')]",
         ]
+        # Words that confirm this is a final-action button, not a Next step
+        FINAL_WORDS = {"submit", "send application", "done", "apply"}
 
         for context in [popup, driver]:
             for xp in submit_xpaths:
@@ -812,27 +863,32 @@ class NaukriAutoApplyAgent:
                     buttons = context.find_elements(By.XPATH, xp)
                     for btn in buttons:
                         try:
-                            if btn.is_displayed() and btn.is_enabled():
-                                driver.execute_script(
-                                    "arguments[0].scrollIntoView({block:'center'});", btn
-                                )
-                                self._highlight(driver, btn, color="#f8d7da", border="3px solid #dc3545")
-                                time.sleep(0.6)   # pause so you can see the submit button
-                                try:
-                                    btn.click()
-                                except Exception:
-                                    driver.execute_script("arguments[0].click();", btn)
-                                log.info(f"Submit button clicked via: {xp}")
-                                return True
+                            if not btn.is_displayed() or not btn.is_enabled():
+                                continue
+                            btn_text = btn.text.strip().lower()
+                            # Only treat as submit if it looks like a final action
+                            if not any(w in btn_text for w in FINAL_WORDS) and "@type='submit'" not in xp:
+                                continue
+                            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", btn)
+                            self._highlight(driver, btn, color="#f8d7da", border="3px solid #dc3545")
+                            time.sleep(0.8)  # longer pause — user can see the red-highlighted Submit
+                            try:
+                                btn.click()
+                            except Exception:
+                                driver.execute_script("arguments[0].click();", btn)
+                            log.info(f"Submit button clicked: '{btn.text.strip()}' via {xp}")
+                            return True
                         except Exception:
                             continue
                 except Exception:
                     continue
-
         return False
 
     def _handle_application_popup(self, driver, job_data: dict) -> str:
-        """Detect popup, fill all fields, and click Submit. Returns a status string."""
+        """
+        Chatbot-style loop: detect popup → answer current question → click Next →
+        wait for next question → repeat → click Submit when done.
+        """
         log = logging.getLogger(__name__)
 
         popup = self._detect_popup(driver)
@@ -840,77 +896,98 @@ class NaukriAutoApplyAgent:
             log.info("No application popup detected.")
             return "applied_click"
 
-        time.sleep(1)  # Wait for fields to render
+        time.sleep(1)
+        answered_ids: set = set()   # track filled field IDs to skip on re-scan
 
-        # ── Fill labelled fields ───────────────────────────────────────────────
-        try:
-            labels = popup.find_elements(By.TAG_NAME, "label")
-            for label in labels:
-                try:
-                    label_text = label.text.strip()
-                    if not label_text:
-                        continue
+        for step in range(20):
+            log.info(f"=== Chatbot step {step + 1} ===")
 
-                    field_el = None
-                    for_attr = label.get_attribute("for")
-                    if for_attr:
+            # Refresh popup reference — Naukri may rebuild the DOM between questions
+            refreshed = self._detect_popup_quick(driver)
+            if refreshed is not None:
+                popup = refreshed
+
+            # ── 1. Fill any visible text / select fields ───────────────────
+            filled_this_step = False
+            try:
+                inputs = popup.find_elements(
+                    By.CSS_SELECTOR,
+                    "input:not([type='hidden']):not([type='radio']):not([type='checkbox']):not([disabled]),"
+                    "textarea:not([disabled]), select:not([disabled])"
+                )
+                for field_el in inputs:
+                    try:
+                        if not field_el.is_displayed():
+                            continue
+                        # Stable identity for this field
+                        fid = (field_el.get_attribute("id") or
+                               field_el.get_attribute("name") or
+                               field_el.get_attribute("placeholder") or
+                               str(step) + str(inputs.index(field_el)))
+                        if fid in answered_ids:
+                            continue
+
+                        tag        = field_el.tag_name.lower()
+                        field_type = (field_el.get_attribute("type") or tag).lower()
+                        placeholder = field_el.get_attribute("placeholder") or ""
+                        name_attr   = field_el.get_attribute("name") or ""
+
+                        # Extract surrounding question text (walk up DOM 4 levels)
+                        question_text = ""
                         try:
-                            field_el = popup.find_element(By.ID, for_attr)
+                            parent = field_el.find_element(By.XPATH, "./ancestor::div[4]")
+                            question_text = parent.text.strip()
                         except Exception:
                             pass
+                        if not question_text:
+                            question_text = placeholder or name_attr
 
-                    if field_el is None:
-                        try:
-                            field_el = label.find_element(
-                                By.XPATH,
-                                "./following-sibling::input | ./following-sibling::textarea | ./following-sibling::select"
-                            )
-                        except Exception:
-                            pass
+                        intent = self._identify_field_intent(question_text, placeholder, name_attr)
+                        log.info(
+                            f"  Step {step+1}: intent='{intent}' "
+                            f"question='{question_text[:70]}' type={field_type}"
+                        )
 
-                    if field_el is None:
-                        try:
-                            field_el = label.find_element(
-                                By.XPATH,
-                                "..//input | ..//textarea | ..//select"
-                            )
-                        except Exception:
-                            pass
+                        if intent != "unknown":
+                            value = self.CANDIDATE_ANSWERS.get(intent, "")
+                        else:
+                            value = (self._generate_ai_answer(question_text, job_data)
+                                     if question_text else "")
 
-                    if field_el is None:
-                        continue
-
-                    tag        = field_el.tag_name.lower()
-                    field_type = (field_el.get_attribute("type") or tag).lower()
-
-                    if field_type in ("radio", "checkbox"):
-                        continue  # Handled by _fill_radio_groups
-
-                    placeholder = field_el.get_attribute("placeholder") or ""
-                    name_attr   = field_el.get_attribute("name") or ""
-
-                    intent = self._identify_field_intent(label_text, placeholder, name_attr)
-                    log.info(f"Field: label='{label_text}' intent={intent} type={field_type}")
-
-                    if intent != "unknown":
-                        value = self.CANDIDATE_ANSWERS.get(intent, "")
                         if value:
-                            self._fill_field(driver, field_el, value, field_type)
-                    elif field_type in ("text", "textarea") and label_text:
-                        answer = self._generate_ai_answer(label_text, job_data)
-                        self._fill_field(driver, field_el, answer, field_type)
+                            ok = self._fill_field(driver, field_el, value, field_type)
+                            if ok:
+                                answered_ids.add(fid)
+                                filled_this_step = True
+                    except Exception as exc:
+                        log.warning(f"  Field error: {exc}")
 
-                except Exception as exc:
-                    log.warning(f"Field fill error: {exc}")
+            except Exception as exc:
+                log.warning(f"  Input scan error: {exc}")
 
-        except Exception as exc:
-            log.warning(f"Label scanning error: {exc}")
+            # ── 2. Handle visible radio groups ────────────────────────────
+            self._fill_radio_groups(driver, popup, job_data, log)
 
-        # ── Fill radio groups ──────────────────────────────────────────────────
-        self._fill_radio_groups(driver, popup, job_data, log)
+            # ── 3. Pause so you can see what was filled ───────────────────
+            time.sleep(1.0)
 
-        # ── Click submit ───────────────────────────────────────────────────────
-        time.sleep(0.5)
+            # ── 4. Is Submit the next action? ─────────────────────────────
+            if self._click_submit_button(driver, popup, log):
+                time.sleep(2)
+                return "applied_submitted"
+
+            # ── 5. Click Next/Send to load the next question ──────────────
+            advanced = self._click_next_button(driver, popup, log)
+            if advanced:
+                time.sleep(2)  # wait for next question to render
+                continue
+
+            # ── 6. Nothing filled and can't advance → stop ────────────────
+            if not filled_this_step:
+                log.info("  No fields filled and no Next button found — ending loop.")
+                break
+
+        # Final attempt at Submit after the loop
         if self._click_submit_button(driver, popup, log):
             time.sleep(2)
             return "applied_submitted"
