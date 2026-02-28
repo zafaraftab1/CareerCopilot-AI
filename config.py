@@ -46,7 +46,7 @@ class Config:
     NAUKRI_PASSWORD = os.getenv('NAUKRI_PASSWORD', '')
 
     # Popup handling
-    POPUP_WAIT_SECONDS    = 5   # seconds to wait for modal after Apply click
+    POPUP_WAIT_SECONDS    = 10  # seconds to wait for modal after Apply click
     OLLAMA_ANSWER_TIMEOUT = 20  # seconds for Ollama AI answer call
 
 class DevelopmentConfig(Config):

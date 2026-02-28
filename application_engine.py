@@ -412,8 +412,8 @@ class NaukriAutoApplyAgent:
         "email": "aftab.work86@gmail.com", "phone": "8178248632", "mobile": "8178248632",
         "current_location": "Hyderabad", "city": "Hyderabad",
         "total_experience": "4", "experience_years": "4",
-        "current_ctc": "14", "current_salary": "14",
-        "expected_ctc": "17", "expected_salary": "17",
+        "current_ctc": "14 LPA", "current_salary": "14 LPA",
+        "expected_ctc": "17 LPA", "expected_salary": "17 LPA",
         "notice_period": "Immediate", "notice": "Immediate", "availability": "Immediate",
         "employed": "No", "currently_employed": "No",
         "relocate": "Yes", "relocation": "Yes", "willing_relocate": "Yes",
@@ -534,9 +534,9 @@ class NaukriAutoApplyAgent:
         """Map label/placeholder/name text to a CANDIDATE_ANSWERS key."""
         text = f"{label} {placeholder} {name_attr}".lower()
 
-        if any(k in text for k in ["expected ctc", "expected salary", "expected compensation"]):
+        if any(k in text for k in ["expected ctc", "expected salary", "expected compensation", "expected package", "hike expected"]):
             return "expected_ctc"
-        if any(k in text for k in ["current ctc", "current salary", "present ctc", "current compensation"]):
+        if any(k in text for k in ["current ctc", "current salary", "present ctc", "current compensation", "current package", "existing salary", "present salary"]):
             return "current_ctc"
         if any(k in text for k in ["notice period", "notice", "joining", "availability"]):
             return "notice_period"
@@ -651,14 +651,32 @@ class NaukriAutoApplyAgent:
         """Detect application popup/modal after Apply click. Returns WebElement or None."""
         log = logging.getLogger(__name__)
 
+        # Give Naukri time to render the modal before scanning
+        time.sleep(3)
+
+        # Naukri-specific selectors first, then generic fallbacks
         popup_selectors = [
+            # Naukri chatbot / question flow
+            "div[class*='chatbot']",
+            "div[class*='bot-container']",
+            "div[class*='chatbot_Questions']",
+            "div[class*='botBox']",
+            # Naukri apply popup
             "div[class*='apply-popup']",
             "div[class*='applyPopup']",
+            "div[class*='applyForm']",
+            "div[class*='apply-form']",
+            # Naukri resume/quick-apply modal
+            "div[class*='resumeApply']",
+            "div[class*='quick-apply']",
+            "div[class*='sendMail']",
+            # Generic dialog
             "div[role='dialog']",
-            "div[class*='chatbot_Questions']",
-            "div[class*='bot-container']",
             "div.modal-content",
             "div[class*='modal']",
+            # Naukri SSO / question overlays
+            "div[class*='overlay']",
+            "div[class*='popup']",
         ]
 
         for selector in popup_selectors:
@@ -671,13 +689,36 @@ class NaukriAutoApplyAgent:
             except Exception:
                 continue
 
-        popup_wait = getattr(Config, "POPUP_WAIT_SECONDS", 5)
+        # Fallback: wait up to POPUP_WAIT_SECONDS for any of the key selectors
+        popup_wait = getattr(Config, "POPUP_WAIT_SECONDS", 10)
+        wait_selectors = [
+            "div[role='dialog']",
+            "div[class*='chatbot']",
+            "div[class*='applyPopup']",
+            "div[class*='apply-popup']",
+            "div[class*='modal']",
+        ]
+        for sel in wait_selectors:
+            try:
+                el = WebDriverWait(driver, popup_wait // len(wait_selectors)).until(
+                    EC.visibility_of_element_located((By.CSS_SELECTOR, sel))
+                )
+                log.info(f"Popup detected via WebDriverWait: {sel}")
+                return el
+            except Exception:
+                continue
+
+        # Last resort: log page classes for debugging
         try:
-            el = WebDriverWait(driver, popup_wait).until(
-                EC.visibility_of_element_located((By.CSS_SELECTOR, "div[role='dialog']"))
-            )
-            log.info("Popup detected via WebDriverWait for div[role='dialog']")
-            return el
+            divs = driver.find_elements(By.CSS_SELECTOR, "div[class]")
+            classes = set()
+            for d in divs[:60]:
+                cls = d.get_attribute("class") or ""
+                for word in cls.split():
+                    if any(k in word.lower() for k in ["popup", "modal", "apply", "bot", "chat", "overlay", "dialog"]):
+                        classes.add(word)
+            if classes:
+                log.info(f"No popup matched — relevant classes on page: {sorted(classes)}")
         except Exception:
             pass
 
