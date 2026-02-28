@@ -237,7 +237,7 @@ class NaukriAutoApplyPipeline:
                           "percent": pct})
 
                     try:
-                        result = agent.apply_to_job_url(driver, url, dry_run=False)
+                        result = agent.apply_to_job_url(driver, url, dry_run=False, job_data=job)
                         status = result.get("status", "")
 
                         if "applied" in status:

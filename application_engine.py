@@ -407,6 +407,20 @@ class NaukriAutoApplyAgent:
     Selenium executor for Naukri apply flow (best-effort).
     """
 
+    CANDIDATE_ANSWERS = {
+        "name": "MD Aftab Alam", "first_name": "MD Aftab", "last_name": "Alam",
+        "email": "aftab.work86@gmail.com", "phone": "8178248632", "mobile": "8178248632",
+        "current_location": "Hyderabad", "city": "Hyderabad",
+        "total_experience": "4", "experience_years": "4",
+        "current_ctc": "14", "current_salary": "14",
+        "expected_ctc": "17", "expected_salary": "17",
+        "notice_period": "Immediate", "notice": "Immediate", "availability": "Immediate",
+        "employed": "No", "currently_employed": "No",
+        "relocate": "Yes", "relocation": "Yes", "willing_relocate": "Yes",
+        "default_yes_no": "Yes",
+        "preferred_locations": "Hyderabad, Noida, Gurgaon, Delhi NCR, Mumbai, Kolkata, Remote",
+    }
+
     def __init__(self, config=None, headless=False):
         self.config = config or Config()
         self.headless = headless
@@ -501,7 +515,338 @@ class NaukriAutoApplyAgent:
         time.sleep(4)
         return {"mode": "credentials", "ok": True, "message": "Login attempted"}
 
-    def apply_to_job_url(self, driver, job_url, dry_run=False):
+    # ── Popup handler helpers ──────────────────────────────────────────────────
+
+    def _identify_field_intent(self, label: str, placeholder: str, name_attr: str) -> str:
+        """Map label/placeholder/name text to a CANDIDATE_ANSWERS key."""
+        text = f"{label} {placeholder} {name_attr}".lower()
+
+        if any(k in text for k in ["expected ctc", "expected salary", "expected compensation"]):
+            return "expected_ctc"
+        if any(k in text for k in ["current ctc", "current salary", "present ctc", "current compensation"]):
+            return "current_ctc"
+        if any(k in text for k in ["notice period", "notice", "joining", "availability"]):
+            return "notice_period"
+        if any(k in text for k in ["total experience", "years of experience", "total exp", "experience"]):
+            return "total_experience"
+        if any(k in text for k in ["preferred location", "preferred city", "preferred work location"]):
+            return "preferred_locations"
+        if any(k in text for k in ["current location", "present location", "city", "location"]):
+            return "current_location"
+        if any(k in text for k in ["relocat", "willing to relocat", "open to relocat"]):
+            return "relocate"
+        if any(k in text for k in ["currently employed", "are you employed", "employment status", "currently working"]):
+            return "employed"
+        if any(k in text for k in ["phone", "mobile", "contact number"]):
+            return "phone"
+        if any(k in text for k in ["email", "e-mail"]):
+            return "email"
+        if any(k in text for k in ["last name", "surname"]):
+            return "last_name"
+        if any(k in text for k in ["first name"]):
+            return "first_name"
+        if any(k in text for k in ["full name", "name"]):
+            return "name"
+        return "unknown"
+
+    def _fill_field(self, driver, element, value: str, field_type: str) -> bool:
+        """Fill a single form element with the given value."""
+        try:
+            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", element)
+            time.sleep(0.2)
+
+            if field_type in ("text", "textarea", "email", "number", "tel", "search"):
+                element.clear()
+                element.send_keys(value)
+                return True
+
+            elif field_type == "select":
+                sel = Select(element)
+                value_lower = value.lower()
+                for opt in sel.options:
+                    if value_lower in opt.text.lower():
+                        sel.select_by_visible_text(opt.text)
+                        return True
+                for opt in sel.options:
+                    opt_val = (opt.get_attribute("value") or "").lower()
+                    if value_lower in opt_val:
+                        sel.select_by_value(opt.get_attribute("value"))
+                        return True
+                return False
+
+            elif field_type in ("radio", "checkbox"):
+                if not element.is_selected():
+                    try:
+                        element.click()
+                    except Exception:
+                        driver.execute_script("arguments[0].click();", element)
+                return True
+
+        except Exception:
+            pass
+        return False
+
+    def _generate_ai_answer(self, question_text: str, job_data: dict) -> str:
+        """Use Ollama to generate an answer to an open-ended screening question."""
+        base_url = self._cfg("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+        model    = self._cfg("OLLAMA_MODEL", "llama3.2:3b")
+        timeout  = getattr(Config, "OLLAMA_ANSWER_TIMEOUT", 20)
+
+        system_prompt = (
+            "You are MD Aftab Alam, a 4-year experienced Python/AWS/AI engineer "
+            "applying for jobs on Naukri. Answer job application screening questions "
+            "concisely and professionally in 1-3 sentences. Do not include any preamble."
+        )
+        job_context = (
+            f"Job: {job_data.get('job_title', 'Software Engineer')} "
+            f"at {job_data.get('company', 'a company')}. "
+            f"Skills required: {', '.join(job_data.get('required_skills', []))}"
+        )
+        user_prompt = f"{job_context}\n\nScreening question: {question_text}"
+
+        try:
+            resp = requests.post(
+                f"{base_url}/api/generate",
+                json={"model": model, "prompt": user_prompt, "system": system_prompt, "stream": False},
+                timeout=timeout,
+            )
+            if resp.ok:
+                return resp.json().get("response", "").strip()
+        except Exception:
+            pass
+
+        return (
+            "I am a passionate Python developer with 4 years of experience building "
+            "scalable backend systems and AI solutions. I am confident my skills align "
+            "well with the requirements of this role and I look forward to contributing."
+        )
+
+    def _detect_popup(self, driver):
+        """Detect application popup/modal after Apply click. Returns WebElement or None."""
+        log = logging.getLogger(__name__)
+
+        popup_selectors = [
+            "div[class*='apply-popup']",
+            "div[class*='applyPopup']",
+            "div[role='dialog']",
+            "div[class*='chatbot_Questions']",
+            "div[class*='bot-container']",
+            "div.modal-content",
+            "div[class*='modal']",
+        ]
+
+        for selector in popup_selectors:
+            try:
+                elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                for el in elements:
+                    if el.is_displayed() and el.size.get("height", 0) > 50:
+                        log.info(f"Popup detected via selector: {selector}")
+                        return el
+            except Exception:
+                continue
+
+        popup_wait = getattr(Config, "POPUP_WAIT_SECONDS", 5)
+        try:
+            el = WebDriverWait(driver, popup_wait).until(
+                EC.visibility_of_element_located((By.CSS_SELECTOR, "div[role='dialog']"))
+            )
+            log.info("Popup detected via WebDriverWait for div[role='dialog']")
+            return el
+        except Exception:
+            pass
+
+        return None
+
+    def _fill_radio_groups(self, driver, popup, job_data: dict, log) -> None:
+        """Find and fill all radio groups inside the popup."""
+        try:
+            radios = popup.find_elements(By.CSS_SELECTOR, "input[type='radio']")
+            groups: dict = {}
+            for r in radios:
+                name = r.get_attribute("name") or ""
+                if name not in groups:
+                    groups[name] = []
+                groups[name].append(r)
+
+            for name, radio_list in groups.items():
+                context_text = name
+                try:
+                    parent = radio_list[0].find_element(By.XPATH, "./ancestor::div[3]")
+                    context_text = parent.text + " " + name
+                except Exception:
+                    pass
+
+                intent = self._identify_field_intent(context_text, "", name)
+                target_value = self.CANDIDATE_ANSWERS.get(intent, "Yes").lower()
+
+                clicked = False
+                for radio in radio_list:
+                    try:
+                        label_text = ""
+                        try:
+                            rid = radio.get_attribute("id")
+                            if rid:
+                                label_el = popup.find_element(By.CSS_SELECTOR, f"label[for='{rid}']")
+                                label_text = label_el.text.strip().lower()
+                        except Exception:
+                            pass
+
+                        if not label_text:
+                            try:
+                                label_text = radio.find_element(
+                                    By.XPATH, "./following-sibling::label"
+                                ).text.strip().lower()
+                            except Exception:
+                                pass
+
+                        if target_value in label_text or label_text in target_value:
+                            driver.execute_script(
+                                "arguments[0].scrollIntoView({block:'center'});", radio
+                            )
+                            try:
+                                radio.click()
+                            except Exception:
+                                driver.execute_script("arguments[0].click();", radio)
+                            log.info(f"Radio group '{name}': selected '{label_text}' (intent={intent})")
+                            clicked = True
+                            break
+                    except Exception:
+                        continue
+
+                if not clicked and radio_list:
+                    try:
+                        driver.execute_script("arguments[0].click();", radio_list[0])
+                        log.info(f"Radio group '{name}': fallback — clicked first option")
+                    except Exception:
+                        pass
+
+        except Exception as exc:
+            log.warning(f"_fill_radio_groups error: {exc}")
+
+    def _click_submit_button(self, driver, popup, log) -> bool:
+        """Attempt to click the submit/apply button inside popup then full page."""
+        submit_xpaths = [
+            ".//button[@type='submit']",
+            ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'submit')]",
+            ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'apply')]",
+            ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'done')]",
+            ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continue')]",
+            ".//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'send application')]",
+            ".//button[contains(@class, 'btn-primary')]",
+            ".//button[contains(@class, 'sendMail')]",
+            ".//button[contains(@class, 'bot-btn')]",
+        ]
+
+        for context in [popup, driver]:
+            for xp in submit_xpaths:
+                try:
+                    buttons = context.find_elements(By.XPATH, xp)
+                    for btn in buttons:
+                        try:
+                            if btn.is_displayed() and btn.is_enabled():
+                                driver.execute_script(
+                                    "arguments[0].scrollIntoView({block:'center'});", btn
+                                )
+                                try:
+                                    btn.click()
+                                except Exception:
+                                    driver.execute_script("arguments[0].click();", btn)
+                                log.info(f"Submit button clicked via: {xp}")
+                                return True
+                        except Exception:
+                            continue
+                except Exception:
+                    continue
+
+        return False
+
+    def _handle_application_popup(self, driver, job_data: dict) -> str:
+        """Detect popup, fill all fields, and click Submit. Returns a status string."""
+        log = logging.getLogger(__name__)
+
+        popup = self._detect_popup(driver)
+        if popup is None:
+            log.info("No application popup detected.")
+            return "applied_click"
+
+        time.sleep(1)  # Wait for fields to render
+
+        # ── Fill labelled fields ───────────────────────────────────────────────
+        try:
+            labels = popup.find_elements(By.TAG_NAME, "label")
+            for label in labels:
+                try:
+                    label_text = label.text.strip()
+                    if not label_text:
+                        continue
+
+                    field_el = None
+                    for_attr = label.get_attribute("for")
+                    if for_attr:
+                        try:
+                            field_el = popup.find_element(By.ID, for_attr)
+                        except Exception:
+                            pass
+
+                    if field_el is None:
+                        try:
+                            field_el = label.find_element(
+                                By.XPATH,
+                                "./following-sibling::input | ./following-sibling::textarea | ./following-sibling::select"
+                            )
+                        except Exception:
+                            pass
+
+                    if field_el is None:
+                        try:
+                            field_el = label.find_element(
+                                By.XPATH,
+                                "..//input | ..//textarea | ..//select"
+                            )
+                        except Exception:
+                            pass
+
+                    if field_el is None:
+                        continue
+
+                    tag        = field_el.tag_name.lower()
+                    field_type = (field_el.get_attribute("type") or tag).lower()
+
+                    if field_type in ("radio", "checkbox"):
+                        continue  # Handled by _fill_radio_groups
+
+                    placeholder = field_el.get_attribute("placeholder") or ""
+                    name_attr   = field_el.get_attribute("name") or ""
+
+                    intent = self._identify_field_intent(label_text, placeholder, name_attr)
+                    log.info(f"Field: label='{label_text}' intent={intent} type={field_type}")
+
+                    if intent != "unknown":
+                        value = self.CANDIDATE_ANSWERS.get(intent, "")
+                        if value:
+                            self._fill_field(driver, field_el, value, field_type)
+                    elif field_type in ("text", "textarea") and label_text:
+                        answer = self._generate_ai_answer(label_text, job_data)
+                        self._fill_field(driver, field_el, answer, field_type)
+
+                except Exception as exc:
+                    log.warning(f"Field fill error: {exc}")
+
+        except Exception as exc:
+            log.warning(f"Label scanning error: {exc}")
+
+        # ── Fill radio groups ──────────────────────────────────────────────────
+        self._fill_radio_groups(driver, popup, job_data, log)
+
+        # ── Click submit ───────────────────────────────────────────────────────
+        time.sleep(0.5)
+        if self._click_submit_button(driver, popup, log):
+            time.sleep(2)
+            return "applied_submitted"
+
+        return "popup_submit_failed"
+
+    def apply_to_job_url(self, driver, job_url, dry_run=False, job_data=None):
         driver.get(job_url)
         WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
         time.sleep(2)
@@ -514,6 +859,7 @@ class NaukriAutoApplyAgent:
             "//a[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'apply')]",
         ]
 
+        apply_clicked = False
         for xp in apply_candidates:
             buttons = driver.find_elements(By.XPATH, xp)
             for btn in buttons:
@@ -521,11 +867,22 @@ class NaukriAutoApplyAgent:
                     if btn.is_displayed() and btn.is_enabled():
                         btn.click()
                         time.sleep(2)
-                        return {"status": "applied_click", "job_url": job_url}
+                        apply_clicked = True
+                        break
                 except Exception:
                     continue
+            if apply_clicked:
+                break
 
-        return {"status": "apply_button_not_found", "job_url": job_url}
+        if not apply_clicked:
+            return {"status": "apply_button_not_found", "job_url": job_url}
+
+        try:
+            popup_status = self._handle_application_popup(driver, job_data or {})
+            return {"status": popup_status, "job_url": job_url}
+        except Exception as exc:
+            logging.getLogger(__name__).error(f"Popup handler exception: {exc}", exc_info=True)
+            return {"status": "applied_click", "job_url": job_url, "popup_error": str(exc)}
 
     def batch_apply(self, job_urls, email=None, password=None, dry_run=False):
         driver = self._driver()
