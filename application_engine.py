@@ -517,6 +517,19 @@ class NaukriAutoApplyAgent:
 
     # ── Popup handler helpers ──────────────────────────────────────────────────
 
+    # ── Visual debug helper ────────────────────────────────────────────────────
+
+    def _highlight(self, driver, element, color: str = "#fff3cd", border: str = "2px solid #f0a500"):
+        """Briefly highlight an element with a coloured border so you can see it being filled."""
+        try:
+            driver.execute_script(
+                "arguments[0].style.border = arguments[1]; "
+                "arguments[0].style.backgroundColor = arguments[2];",
+                element, border, color,
+            )
+        except Exception:
+            pass
+
     def _identify_field_intent(self, label: str, placeholder: str, name_attr: str) -> str:
         """Map label/placeholder/name text to a CANDIDATE_ANSWERS key."""
         text = f"{label} {placeholder} {name_attr}".lower()
@@ -550,14 +563,21 @@ class NaukriAutoApplyAgent:
         return "unknown"
 
     def _fill_field(self, driver, element, value: str, field_type: str) -> bool:
-        """Fill a single form element with the given value."""
+        """Fill a single form element with the given value (with visual highlight)."""
         try:
             driver.execute_script("arguments[0].scrollIntoView({block:'center'});", element)
-            time.sleep(0.2)
+            time.sleep(0.3)
+            self._highlight(driver, element)   # yellow flash so you see it
+            time.sleep(0.4)
 
             if field_type in ("text", "textarea", "email", "number", "tel", "search"):
                 element.clear()
-                element.send_keys(value)
+                # Type character-by-character so it's readable on screen
+                for ch in value:
+                    element.send_keys(ch)
+                    time.sleep(0.04)
+                self._highlight(driver, element, color="#d4edda", border="2px solid #28a745")  # green = done
+                time.sleep(0.3)
                 return True
 
             elif field_type == "select":
@@ -566,15 +586,21 @@ class NaukriAutoApplyAgent:
                 for opt in sel.options:
                     if value_lower in opt.text.lower():
                         sel.select_by_visible_text(opt.text)
+                        self._highlight(driver, element, color="#d4edda", border="2px solid #28a745")
+                        time.sleep(0.4)
                         return True
                 for opt in sel.options:
                     opt_val = (opt.get_attribute("value") or "").lower()
                     if value_lower in opt_val:
                         sel.select_by_value(opt.get_attribute("value"))
+                        self._highlight(driver, element, color="#d4edda", border="2px solid #28a745")
+                        time.sleep(0.4)
                         return True
                 return False
 
             elif field_type in ("radio", "checkbox"):
+                self._highlight(driver, element, color="#cce5ff", border="2px solid #004085")
+                time.sleep(0.3)
                 if not element.is_selected():
                     try:
                         element.click()
@@ -703,6 +729,8 @@ class NaukriAutoApplyAgent:
                             driver.execute_script(
                                 "arguments[0].scrollIntoView({block:'center'});", radio
                             )
+                            self._highlight(driver, radio, color="#cce5ff", border="2px solid #004085")
+                            time.sleep(0.4)
                             try:
                                 radio.click()
                             except Exception:
@@ -747,6 +775,8 @@ class NaukriAutoApplyAgent:
                                 driver.execute_script(
                                     "arguments[0].scrollIntoView({block:'center'});", btn
                                 )
+                                self._highlight(driver, btn, color="#f8d7da", border="3px solid #dc3545")
+                                time.sleep(0.6)   # pause so you can see the submit button
                                 try:
                                     btn.click()
                                 except Exception:

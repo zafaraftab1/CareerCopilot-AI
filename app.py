@@ -35,7 +35,7 @@ def create_app(config_name='development'):
     })
     app.config.setdefault('AUTOMATION_SETTINGS', {
         'use_live_naukri_scraper': True,
-        'naukri_headless': True,
+        'naukri_headless': False,   # show browser window so you can watch
         'auto_apply_dry_run': True,
     })
 
@@ -909,7 +909,7 @@ def create_app(config_name='development'):
         from naukri_auto_apply_pipeline import NaukriAutoApplyPipeline
 
         dry_run         = request.args.get('dry_run', 'false').lower() == 'true'
-        headless        = request.args.get('headless', 'true').lower() == 'true'
+        headless        = request.args.get('headless', 'false').lower() == 'true'
         daily_limit     = int(request.args.get('daily_limit', 30))
         match_threshold = int(request.args.get('match_threshold', 70))
 

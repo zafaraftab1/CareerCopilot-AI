@@ -1,7 +1,112 @@
 {
   "scraped": 44,
-  "matched": 12,
-  "applied": 0,
-  "applied_jobs": [],
-  "timestamp": "2026-02-28T15:23:22.733052"
+  "matched": 30,
+  "applied": 13,
+  "applied_jobs": [
+    {
+      "job_title": "Python Developer",
+      "company": "Tata Consultancy Services",
+      "location": "Hyderabad, Chennai, Bengaluru",
+      "match_score": 94,
+      "status": "applied (dry run)",
+      "job_url": "https://www.naukri.com/job-listings-python-developer-tata-consultancy-services-hyderabad-chennai-bengaluru-4-to-9-years-240226008686"
+    },
+    {
+      "job_title": "Python Developer",
+      "company": "EY",
+      "location": "Hybrid - Hyderabad, Chennai, Bengaluru",
+      "match_score": 91,
+      "status": "applied (dry run)",
+      "job_url": "https://www.naukri.com/job-listings-python-developer-ey-hyderabad-chennai-bengaluru-3-to-5-years-130226035809"
+    },
+    {
+      "job_title": "Openings For Python Developer || Interviews on 21st Saturday ,26",
+      "company": "HCLTech",
+      "location": "Noida",
+      "match_score": 91,
+      "status": "applied (dry run)",
+      "job_url": "https://www.naukri.com/job-listings-openings-for-python-developer-interviews-on-21st-saturday-26-hcl-software-noida-3-to-8-years-160226012367"
+    },
+    {
+      "job_title": "Data Scientist (Remote)",
+      "company": "Crossing Hurdles",
+      "location": "Remote",
+      "match_score": 91,
+      "status": "applied (dry run)",
+      "job_url": "https://www.naukri.com/job-listings-data-scientist-remote-crossing-hurdles-gurugram-1-to-6-years-250226934370"
+    },
+    {
+      "job_title": "Python Software Developer",
+      "company": "Corbus",
+      "location": "Noida(Sector 125)",
+      "match_score": 89,
+      "status": "applied (dry run)",
+      "job_url": "https://www.naukri.com/job-listings-python-software-developer-corbus-noida-3-to-5-years-160226019112"
+    },
+    {
+      "job_title": "Python Software Developer",
+      "company": "Redberyl Tech Solutions",
+      "location": "Hyderabad, Pune, Bengaluru",
+      "match_score": 88,
+      "status": "applied (dry run)",
+      "job_url": "https://www.naukri.com/job-listings-python-software-developer-redberyl-tech-solutions-hyderabad-pune-bengaluru-5-to-10-years-260226009459"
+    },
+    {
+      "job_title": "Python Developer - IIT / NIT",
+      "company": "Oriserve",
+      "location": "Noida",
+      "match_score": 84,
+      "status": "applied (dry run)",
+      "job_url": "https://www.naukri.com/job-listings-python-developer-iit-nit-oriserve-noida-1-to-5-years-200226920746"
+    },
+    {
+      "job_title": "Backend Developer",
+      "company": "Zippee",
+      "location": "Gurugram(Udyog Vihar Phase 2)",
+      "match_score": 84,
+      "status": "applied (dry run)",
+      "job_url": "https://www.naukri.com/job-listings-backend-developer-zippee-gurugram-3-to-8-years-200226027526"
+    },
+    {
+      "job_title": "Python Developer",
+      "company": "Tata Consultancy Services",
+      "location": "Hyderabad, Pune, Bengaluru",
+      "match_score": 83,
+      "status": "applied (dry run)",
+      "job_url": "https://www.naukri.com/job-listings-python-developer-tata-consultancy-services-hyderabad-pune-bengaluru-6-to-8-years-240226050935"
+    },
+    {
+      "job_title": "Generative AI Engineer",
+      "company": "EY",
+      "location": "Hybrid - Hyderabad",
+      "match_score": 83,
+      "status": "applied (dry run)",
+      "job_url": "https://www.naukri.com/job-listings-generative-ai-engineer-ey-hyderabad-4-to-9-years-200226010176"
+    },
+    {
+      "job_title": "Python Developer",
+      "company": "EY",
+      "location": "Hybrid - Hyderabad, Pune, Bengaluru",
+      "match_score": 81,
+      "status": "applied (dry run)",
+      "job_url": "https://www.naukri.com/job-listings-python-developer-ey-hyderabad-pune-bengaluru-3-to-8-years-200126025346"
+    },
+    {
+      "job_title": "Python Developer ( Fresher / Intern )",
+      "company": "Dwaraka Head Quarters",
+      "location": "Hyderabad",
+      "match_score": 80,
+      "status": "applied (dry run)",
+      "job_url": "https://www.naukri.com/job-listings-python-developer-fresher-intern-dwaraka-starline-hyderabad-0-to-1-years-220226003903"
+    },
+    {
+      "job_title": "AI Backend Developer",
+      "company": "HR 9945807247",
+      "location": "Gurugram",
+      "match_score": 80,
+      "status": "applied (dry run)",
+      "job_url": "https://www.naukri.com/job-listings-ai-backend-developer-sharda-consultancy-services-gurugram-2-to-3-years-270226038152"
+    }
+  ],
+  "timestamp": "2026-02-28T15:44:07.121071"
 }
